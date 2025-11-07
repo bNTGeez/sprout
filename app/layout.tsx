@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import "./globals.css";
+import PageLayout from "./components/PageLayout";
 
 export const metadata: Metadata = {
   title: "Sprout",
-  description: "Sprout is a platform for managing your finances and investments.",
+  description:
+    "Sprout is a platform for managing your finances and investments.",
 };
 
 export default function RootLayout({
@@ -12,7 +15,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <PageLayout>{children}</PageLayout>
+      </body>
     </html>
   );
 }
