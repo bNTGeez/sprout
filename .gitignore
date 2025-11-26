@@ -1,7 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules/
+/sprout/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -13,16 +14,24 @@
 # testing
 /coverage
 
-# next.js
+# next.js / frontend build artifacts
 /.next/
+/sprout/.next/
 /out/
+/sprout/out/
+/.turbo/
+/sprout/.turbo/
 
 # production
 /build
+/sprout/build
+/sprout/.vercel/
 
 # misc
 .DS_Store
 *.pem
+.idea/
+.vscode/
 
 # debug
 npm-debug.log*
@@ -32,13 +41,18 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-
-# vercel
-.vercel
+/backend/.env
+/backend/.env.*
+/sprout/.env*
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
-# Virtual environments
+# Python / backend
 .venv/
+/backend/.venv/
+__pycache__/
+.pytest_cache/
+.coverage
+coverage.xml
