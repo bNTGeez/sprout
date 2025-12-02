@@ -1,3 +1,9 @@
+"""Database engine and session setup.
+
+This file connects SQLAlchemy to your database using `DATABASE_URL` and
+exposes `get_db()` as a FastAPI dependency that routes can use for queries.
+"""
+
 from collections.abc import Generator
 
 from sqlalchemy import create_engine

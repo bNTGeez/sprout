@@ -1,3 +1,9 @@
+"""Application configuration and environment variables.
+
+This file defines the `Settings` object and a `get_settings()` helper that
+you can import anywhere in the backend to read config (e.g. database URL).
+"""
+
 from functools import lru_cache
 import os
 
