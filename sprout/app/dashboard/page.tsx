@@ -1,37 +1,72 @@
-import React from "react";
+"use client";
+import { useState, useEffect } from "react";
 import StatCard from "@/app/components/StatCard";
 import SpendingBreakdown from "@/app/components/dashboard/SpendingBreakdown";
 import RecentTransactions from "@/app/components/dashboard/RecentTransactions";
-import { mockDashboardData } from "@/app/data/dashboardData";
 import Card from "@/app/components/Card";
-
+import ConnectBank from "@/app/components/plaid/connect_bank";
+import { fetchDashboard } from "@/lib/api";
+import type { DashboardData } from "@/app/types/dashboard";
 const page = () => {
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
+    null
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await fetchDashboard();
+        setDashboardData(data);
+      } catch (error: any) {
+        setError(error.message || "Failed to load dashboard data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
+
+  if (!dashboardData) {
+    return <div>No dashboard data available</div>;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div>
-        <h1 className="mx-4 my-6 text-2xl font-bold text-gray-900">
-          Dashboard
-        </h1>
+      <div className="flex justify-between items-center mx-4 my-6">
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <ConnectBank />
       </div>
       <div className="grid grid-cols-12 gap-4 p-4 mx-6">
         <div className="col-span-12 md:col-span-3 flex">
-          <StatCard title="Income" value={mockDashboardData.income} />
+          <StatCard title="Income" value={dashboardData?.income || 0} />
         </div>
         <div className="col-span-12 md:col-span-3 flex">
-          <StatCard title="Expenses" value={mockDashboardData.expenses} />
+          <StatCard title="Expenses" value={dashboardData?.expenses || 0} />
         </div>
         <div className="col-span-12 md:col-span-3 flex">
-          <StatCard title="Savings" value={mockDashboardData.savings} />
+          <StatCard title="Savings" value={dashboardData?.savings || 0} />
         </div>
         <div className="col-span-12 md:col-span-3 flex">
-          <StatCard title="Assets" value={mockDashboardData.assets} />
+          <StatCard title="Assets" value={dashboardData?.assets || 0} />
         </div>
         <div className="col-span-12 md:col-span-5 flex">
-          <SpendingBreakdown data={mockDashboardData.spendingBreakdown} />
+          <SpendingBreakdown data={dashboardData?.spendingBreakdown || []} />
         </div>
         <div className="col-span-12 md:col-span-7 flex">
           <RecentTransactions
-            transactions={mockDashboardData.recentTransactions}
+            transactions={dashboardData?.recentTransactions || []}
           />
         </div>
         <div className="col-span-12 md:col-span-6 flex">
@@ -53,7 +88,7 @@ const page = () => {
           </Card>
         </div>
         <div className="col-span-12 md:col-span-5 flex">
-          <StatCard title="Net Worth" value={mockDashboardData.netWorth} />
+          <StatCard title="Net Worth" value={dashboardData?.netWorth || 0} />
         </div>
         <div className="col-span-12 md:col-span-7 flex">
           <Card>

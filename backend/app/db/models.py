@@ -51,7 +51,7 @@ class Account(Base):
     plaid_item_id: Mapped[int | None] = mapped_column(ForeignKey("plaid_items.id"), nullable=True)
     plaid_account_id: Mapped[str | None] = mapped_column(nullable=True)
     name: Mapped[str]
-    account_type: Mapped[str]
+    account_type: Mapped[str] 
     provider: Mapped[str]
     account_num: Mapped[str]
     balance: Mapped[Decimal] = mapped_column(Numeric(15, 2))  # Up to $9,999,999,999,999.99
@@ -73,7 +73,6 @@ class Category(Base):
     name: Mapped[str]
     icon: Mapped[str | None] = mapped_column(nullable=True)
     color: Mapped[str | None] = mapped_column(String(7), nullable=True)  # Hex color like "#FF5733"
-    
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="category")
     budgets: Mapped[list["Budget"]] = relationship(back_populates="category")
     insights: Mapped[list["Insight"]] = relationship(back_populates="related_category")
@@ -231,6 +230,7 @@ class PlaidItem(Base):
     error_code: Mapped[str | None] = mapped_column(nullable=True)
     last_successful_update: Mapped[datetime | None] = mapped_column(nullable=True)
     last_webhook_update: Mapped[datetime | None] = mapped_column(nullable=True)
+    transactions_cursor: Mapped[str | None] = mapped_column(nullable=True)  # For incremental transaction syncs
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

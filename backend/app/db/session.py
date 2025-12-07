@@ -19,8 +19,8 @@ if not settings.database_url:
 
 engine = create_engine(
     settings.database_url,
-    echo=settings.debug,
-    pool_pre_ping=True,
+    echo=settings.debug, # log the SQL queries to the console
+    pool_pre_ping=True, # ping the database to keep the connection alive
 )
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 

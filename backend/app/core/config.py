@@ -8,7 +8,7 @@ from functools import lru_cache
 import os
 
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel 
 
 
 class Settings(BaseModel):
@@ -16,8 +16,12 @@ class Settings(BaseModel):
 
     database_url: str = ""
     debug: bool = False
+    # Plaid configuration
+    plaid_client_id: str = ""
+    plaid_secret: str = ""
+    plaid_env: str = "sandbox"  # sandbox, development, or production
 
-
+# cache the settings so we don't have to load the .env file every time
 @lru_cache
 def get_settings() -> Settings:
     """Return a cached Settings instance."""
@@ -27,4 +31,7 @@ def get_settings() -> Settings:
     return Settings(
         database_url=os.getenv("DATABASE_URL", ""),
         debug=debug_value,
+        plaid_client_id=os.getenv("plaid_client_id", ""),
+        plaid_secret=os.getenv("plaid_secret", ""),
+        plaid_env=os.getenv("plaid_env", "sandbox"),
     )
