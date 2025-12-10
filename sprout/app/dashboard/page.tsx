@@ -7,7 +7,11 @@ import Card from "@/app/components/Card";
 import ConnectBank from "@/app/components/plaid/connect_bank";
 import { fetchDashboard } from "@/lib/api";
 import type { DashboardData } from "@/app/types/dashboard";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+
 const page = () => {
+  const router = useRouter();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(
     null
   );
@@ -17,6 +21,15 @@ const page = () => {
   useEffect(() => {
     const load = async () => {
       try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          router.push("/login");
+          return;
+        }
         setIsLoading(true);
         setError(null);
         const data = await fetchDashboard();
