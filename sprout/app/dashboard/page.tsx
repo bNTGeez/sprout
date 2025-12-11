@@ -23,16 +23,17 @@ const page = () => {
       try {
         const supabase = createClient();
         const {
-          data: { user },
-        } = await supabase.auth.getUser();
+          data: { session },
+        } = await supabase.auth.getSession();
 
-        if (!user) {
+        const token = session?.access_token
+        if (!token) {
           router.push("/login");
           return;
         }
         setIsLoading(true);
         setError(null);
-        const data = await fetchDashboard();
+        const data = await fetchDashboard(token);
         setDashboardData(data);
       } catch (error: any) {
         setError(error.message || "Failed to load dashboard data");

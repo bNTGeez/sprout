@@ -1,8 +1,10 @@
+from typing import Annotated
 from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.orm import Session 
+from sqlalchemy.orm import Session
 from ...db.session import get_db
 from ...db.models import User, PlaidItem, Account, Transaction
 from ...schemas import PublicTokenRequest
+from ...core.auth import get_current_user
 from sqlalchemy import select
 from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUser
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
@@ -15,11 +17,10 @@ from .services import sync_accounts, sync_transactions
 router = APIRouter()
 
 @router.get("/link_token/create")
-def get_plaid_link(db: Session = Depends(get_db)) -> dict:
-  query = select(User)
-  current_user = db.execute(query).scalar_one_or_none()
-  if not current_user:
-    raise HTTPException(status_code=404, detail="User not found")
+def get_plaid_link(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)]
+) -> dict:
 
   try:
     request = LinkTokenCreateRequest(
@@ -36,17 +37,25 @@ def get_plaid_link(db: Session = Depends(get_db)) -> dict:
     
     return {"link_token": link_token}
   except Exception as e:
+
+    try:
+      body = getattr(e, "body", None)
+      status = getattr(e, "status", None)
+      print("Plaid link_token_create error status:", status)
+      print("Plaid link_token_create error body:", body)
+    except Exception:
+      pass
     raise HTTPException(
       status_code=500,
       detail=f"Failed to create Plaid link token: {str(e)}"
     )
 
 @router.post("/item/public_token/exchange")
-def plaid_link_callback(request: PublicTokenRequest, db: Session = Depends(get_db)) -> dict:
-  query = select(User)
-  current_user = db.execute(query).scalar_one_or_none()
-  if not current_user:
-    raise HTTPException(status_code=404, detail="User not found")
+def plaid_link_callback(
+    request: PublicTokenRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)]
+) -> dict:
 
   try:
     # Exchange public_token for access_token
@@ -104,12 +113,11 @@ def plaid_link_callback(request: PublicTokenRequest, db: Session = Depends(get_d
     )
 
 @router.get("/items")
-def list_plaid_items(db: Session = Depends(get_db)) -> dict:
+def list_plaid_items(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)]
+) -> dict:
   """List all PlaidItems for the current user."""
-  query = select(User)
-  current_user = db.execute(query).scalar_one_or_none()
-  if not current_user:
-    raise HTTPException(status_code=404, detail="User not found")
 
   plaid_items = db.execute(
     select(PlaidItem).filter(PlaidItem.user_id == current_user.id)
@@ -129,12 +137,12 @@ def list_plaid_items(db: Session = Depends(get_db)) -> dict:
   }
 
 @router.get("/status/{plaid_item_id}")
-def get_plaid_item_status(plaid_item_id: int, db: Session = Depends(get_db)) -> dict:
+def get_plaid_item_status(
+    plaid_item_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)]
+) -> dict:
   """Get sync status for a PlaidItem - shows account and transaction counts."""
-  query = select(User)
-  current_user = db.execute(query).scalar_one_or_none()
-  if not current_user:
-    raise HTTPException(status_code=404, detail="User not found")
 
   # Get PlaidItem
   plaid_item_query = select(PlaidItem).filter(
@@ -169,12 +177,12 @@ def get_plaid_item_status(plaid_item_id: int, db: Session = Depends(get_db)) -> 
   }
 
 @router.post("/sync")
-def sync_plaid_data(plaid_item_id: int, db: Session = Depends(get_db)) -> dict:
+def sync_plaid_data(
+    plaid_item_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)]
+) -> dict:
   """Manually trigger sync for accounts and transactions for a PlaidItem."""
-  query = select(User)
-  current_user = db.execute(query).scalar_one_or_none()
-  if not current_user:
-    raise HTTPException(status_code=404, detail="User not found")
 
   # Verify PlaidItem belongs to current user
   plaid_item_query = select(PlaidItem).filter(

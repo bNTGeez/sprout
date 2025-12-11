@@ -1,4 +1,8 @@
-import { exchangePlaidToken, getPlaidLinkToken } from "@/lib/api";
+import {
+  exchangePlaidToken,
+  getPlaidLinkToken,
+  getPlaidItems,
+} from "@/lib/api";
 import { useState, useEffect, useMemo } from "react";
 import {
   PlaidLinkOptions,
@@ -6,17 +10,49 @@ import {
   PlaidLinkOnExitMetadata,
   PlaidLinkOnSuccessMetadata,
 } from "react-plaid-link";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ConnectBank() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     const fetchLinkToken = async () => {
       try {
-        const newLinkToken = await getPlaidLinkToken();
+        // Get Supabase session token
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        const token = session?.access_token;
+        if (!token) {
+          setError("You must be logged in to connect a bank account.");
+          setLoading(false);
+          return;
+        }
+
+        setAuthToken(token);
+
+        // Check if a Plaid item already exists for this user
+        try {
+          const items = await getPlaidItems(token);
+          const hasItems = items?.plaid_items?.length > 0;
+          setIsConnected(hasItems);
+          if (hasItems) {
+            setLoading(false);
+            return;
+          }
+        } catch (itemsErr) {
+          // Non-fatal: continue to attempt link token fetch
+          console.warn("Unable to load Plaid items:", itemsErr);
+        }
+
+        const newLinkToken = await getPlaidLinkToken(token);
         setLinkToken(newLinkToken);
         setLoading(false);
       } catch (error) {
@@ -29,7 +65,7 @@ export default function ConnectBank() {
   }, []);
 
   const config: PlaidLinkOptions = useMemo(() => {
-    if (!linkToken) {
+    if (!linkToken || !authToken) {
       return {
         token: "",
         onSuccess: () => {},
@@ -52,11 +88,13 @@ export default function ConnectBank() {
         // Exchange token and sync data
         exchangePlaidToken(
           public_token,
+          authToken,
           institution_id || null,
           institution_name || null
         )
           .then(() => {
             setSuccess(true);
+            setIsConnected(true);
           })
           .catch((error: any) => {
             console.error("Failed to exchange Plaid token:", error);
@@ -78,7 +116,7 @@ export default function ConnectBank() {
       },
       token: linkToken,
     };
-  }, [linkToken]);
+  }, [linkToken, authToken]);
 
   const { open, exit, ready } = usePlaidLink(config);
 
@@ -113,10 +151,10 @@ export default function ConnectBank() {
             open();
           }
         }}
-        disabled={!ready || !linkToken || loading}
+        disabled={!ready || !linkToken || loading || isConnected}
         className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
       >
-        Connect Bank Account
+        {isConnected ? "Bank Connected" : "Connect Bank Account"}
       </button>
     </div>
   );

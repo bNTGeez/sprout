@@ -4,6 +4,7 @@ Start by putting simple endpoints here (like `/health`), and later you can
 split things into feature-specific route modules and include them in `main.py`.
 """
 
+from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
@@ -12,17 +13,17 @@ from datetime import date
 from ..schemas import DashboardResponse, SpendingBreakdownItem, TransactionItem
 from ..db.session import get_db
 from ..db.models import User, Transaction, Account, Category, Holding
+from ..core.auth import get_current_user
 
 router = APIRouter()
 
 
 @router.get("/dashboard")
-def get_dashboard(db: Session = Depends(get_db)) -> DashboardResponse:
+def get_dashboard(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)]
+) -> DashboardResponse:
     """Get the dashboard data."""
-    query = select(User)
-    current_user = db.execute(query).scalar_one_or_none()
-    if not current_user:
-        raise HTTPException(status_code=404, detail="User not found")
     
     today = date.today()
     current_month = today.month

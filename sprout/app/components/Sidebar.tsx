@@ -1,14 +1,42 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Target,
   Wallet,
   Receipt,
   PieChart,
+  LogIn,
+  LogOut,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 const Sidebar = () => {
+  const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const loadSession = async () => {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setIsLoggedIn(!!session);
+      setAuthChecked(true);
+    };
+    loadSession();
+  }, []);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setIsLoggedIn(false);
+    router.push("/login");
+  };
+
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/goals", label: "Goals", icon: Target },
@@ -45,6 +73,30 @@ const Sidebar = () => {
             })}
           </div>
         </nav>
+        {/* Auth actions */}
+        <div className="px-4 py-6 border-t border-gray-200">
+          {authChecked && (
+            <>
+              {!isLoggedIn ? (
+                <Link
+                  href="/login"
+                  className="flex items-center gap-2 w-full justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Login
+                </Link>
+              ) : (
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 w-full justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Logout
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </aside>
   );

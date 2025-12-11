@@ -22,8 +22,22 @@ interface BackendDashboardData {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export async function fetchDashboard(): Promise<DashboardData> {
-  const response = await fetch(`${API_BASE_URL}/api/dashboard`);
+export async function fetchDashboard(token?: string): Promise<DashboardData> {
+  if (!token) {
+    console.warn("fetchDashboard called without token");
+  } else {
+    console.info(
+      "fetchDashboard sending token (preview):",
+      token.substring(0, 16)
+    );
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/dashboard`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
   if (!response.ok) {
     throw new Error("Failed to fetch dashboard data");
   }
@@ -46,10 +60,19 @@ export async function fetchDashboard(): Promise<DashboardData> {
   };
 }
 
-export async function getPlaidLinkToken(): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/api/plaid/link_token/create`);
+export async function getPlaidLinkToken(token: string): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/api/plaid/link_token/create`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
   if (!response.ok) {
-    throw new Error("Failed to get Plaid link token");
+    const errorData = await response
+      .json()
+      .catch(() => ({ detail: "Unknown error" }));
+    throw new Error(
+      errorData.detail || `Failed to get Plaid link token: ${response.status}`
+    );
   }
   const data = await response.json();
   return data.link_token;
@@ -57,6 +80,7 @@ export async function getPlaidLinkToken(): Promise<string> {
 
 export async function exchangePlaidToken(
   public_token: string,
+  token: string,
   institution_id?: string | null,
   institution_name?: string | null
 ): Promise<any> {
@@ -64,7 +88,10 @@ export async function exchangePlaidToken(
     `${API_BASE_URL}/api/plaid/item/public_token/exchange`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         public_token,
         institution_id: institution_id || null,
@@ -80,6 +107,20 @@ export async function exchangePlaidToken(
     throw new Error(
       errorData.detail || `Failed to exchange Plaid token: ${response.status}`
     );
+  }
+
+  return response.json();
+}
+
+export async function getPlaidItems(token: string): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/api/plaid/items`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to load Plaid items");
   }
 
   return response.json();

@@ -4,14 +4,17 @@ from ...core.config import get_settings
 
 settings = get_settings()
 
-if settings.plaid_env.lower() == "production":
+plaid_env = (settings.plaid_env or "sandbox").lower()
+if plaid_env == "production":
     plaid_host = plaid.Environment.Production
+elif plaid_env == "development":
+    plaid_host = plaid.Environment.Development
 else:
     plaid_host = plaid.Environment.Sandbox
 
 if not settings.plaid_client_id or not settings.plaid_secret:
     raise ValueError(
-        "Plaid credentials not configured. Please set PLAID_CLIENT_ID and PLAID_SECRET in your .env file."
+        "Plaid credentials not configured. Please set PLAID_CLIENT_ID, PLAID_SECRET, and PLAID_ENV in your .env file."
     )
 
 configuration = plaid.Configuration(
