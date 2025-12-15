@@ -31,7 +31,7 @@ export default function ConnectBank() {
 
         const token = session?.access_token;
         if (!token) {
-          setError("You must be logged in to connect a bank account.");
+          console.error("No session token available");
           setLoading(false);
           return;
         }
@@ -88,7 +88,7 @@ export default function ConnectBank() {
         // Exchange token and sync data
         exchangePlaidToken(
           public_token,
-          authToken,
+          authToken!,
           institution_id || null,
           institution_name || null
         )

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Target,
@@ -15,9 +15,11 @@ import { createClient } from "@/lib/supabase/client";
 
 const Sidebar = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
 
+  // Check auth state for UI purposes (showing login vs logout button)
   useEffect(() => {
     const loadSession = async () => {
       const supabase = createClient();
@@ -28,7 +30,7 @@ const Sidebar = () => {
       setAuthChecked(true);
     };
     loadSession();
-  }, []);
+  }, [pathname]);
 
   const handleLogout = async () => {
     const supabase = createClient();

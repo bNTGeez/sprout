@@ -8,10 +8,8 @@ import ConnectBank from "@/app/components/plaid/connect_bank";
 import { fetchDashboard } from "@/lib/api";
 import type { DashboardData } from "@/app/types/dashboard";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 
 const page = () => {
-  const router = useRouter();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(
     null
   );
@@ -21,22 +19,20 @@ const page = () => {
   useEffect(() => {
     const load = async () => {
       try {
+        setIsLoading(true);
+        setError(null);
+        // Get auth token for API call
         const supabase = createClient();
         const {
           data: { session },
         } = await supabase.auth.getSession();
-
-        const token = session?.access_token
-        if (!token) {
-          router.push("/login");
-          return;
-        }
-        setIsLoading(true);
-        setError(null);
+        const token = session?.access_token;
+        // Proxy already ensures user is logged in, but we still need token for API
         const data = await fetchDashboard(token);
         setDashboardData(data);
       } catch (error: any) {
         setError(error.message || "Failed to load dashboard data");
+        // If unauthorized, Proxy will redirect to login on next navigation
       } finally {
         setIsLoading(false);
       }
