@@ -7,7 +7,7 @@ budgets, holdings, insights, plans, Plaid items) to database tables.
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Date, ForeignKey, String, Text, JSON, Numeric, UniqueConstraint
+from sqlalchemy import DateTime, Date, ForeignKey, String, Text, JSON, Numeric, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -240,3 +240,37 @@ class PlaidItem(Base):
     
 
 
+class MerchantNormalizationCache(Base):
+    """Global cache for merchant name normalizations."""
+    __tablename__ = "merchant_normalization_cache"
+    __table_args__ = (Index("ix_merchant_norm_raw", "raw_merchant"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    raw_merchant: Mapped[str] = mapped_column(String(500), unique=True, index=True)
+    normalized_merchant: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class UserCategorizationCache(Base):
+    """User-specific categorization overrides.
+
+    Key behavior:
+    - source="user_feedback" ALWAYS overrides source="agent_learning" gives option for user to change categories for merchant 
+    - updated_at can be used for staleness checks (optional 180-day TTL)
+    """
+    __tablename__ = "user_categorization_cache"
+    __table_args__ = (
+        UniqueConstraint("user_id", "normalized_merchant", name="uq_user_merchant_cat"),
+        Index("ix_user_cat_user_merchant", "user_id", "normalized_merchant"),
+        Index("ix_user_cat_source", "source"),  # For filtering by source
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    normalized_merchant: Mapped[str] = mapped_column(String(200))
+    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
+    is_subscription: Mapped[bool] = mapped_column(default=False)
+    tags: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    source: Mapped[str] = mapped_column(String(50))  # "user_feedback" or "agent_learning"
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

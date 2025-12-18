@@ -17,8 +17,13 @@ if not settings.database_url:
         "DATABASE_URL is not configured. Set it in your environment or .env file."
     )
 
+# Convert postgresql:// to postgresql+psycopg:// for psycopg3 compatibility
+database_url = settings.database_url
+if database_url.startswith("postgresql://") and "+psycopg" not in database_url:
+    database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
 engine = create_engine(
-    settings.database_url,
+    database_url,
     echo=settings.debug, # log the SQL queries to the console
     pool_pre_ping=True, # ping the database to keep the connection alive
 )
