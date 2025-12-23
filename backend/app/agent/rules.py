@@ -35,7 +35,11 @@ def clean_merchant_fallback(raw_merchant: str) -> str:
         if cleaned.upper().startswith(prefix):
             cleaned = cleaned[len(prefix):].strip()
     # Title case
-    return cleaned.title() or "Unknown Merchant"
+    cleaned = cleaned.title()
+    # Check if result is empty or only whitespace
+    if not cleaned or not cleaned.strip():
+        return "Unknown Merchant"
+    return cleaned
 
 KNOWN_MERCHANT_CATEGORIES = {
     "Starbucks": ("Dining", False),
@@ -69,3 +73,30 @@ def validate_category_name(category_name: str, valid_categories: list[str]) -> s
     if "Other" in valid_categories:
         return "Other"
     raise ValueError(f"No 'Other' category found.")
+
+def detect_subscription_pattern(
+    recent_amounts: list[float],
+    recent_dates: list[str]
+) -> bool:
+    """Detect subscription: consistent amounts + ~30 day intervals."""
+    if len(recent_amounts) < 2 or len(recent_dates) < 2:
+        return False
+    # Check amount consistency (within 5%)
+    # Convert to absolute values for comparison
+    abs_amounts = [abs(a) for a in recent_amounts]
+    if not abs_amounts:
+        return False
+    min_amount = min(abs_amounts)
+    max_amount = max(abs_amounts)
+    # Check that max is within 5% of min (or vice versa)
+    if min_amount > 0 and (max_amount - min_amount) / min_amount > 0.05:
+        return False
+    # Check intervals (~monthly)
+    try:
+        from datetime import datetime
+        dates = sorted([datetime.fromisoformat(d) for d in recent_dates])
+        intervals = [(dates[i] - dates[i-1]).days for i in range(1, len(dates))]
+        avg_interval = sum(intervals) / len(intervals)
+        return 25 <= avg_interval <= 35  # Monthly
+    except:
+        return False
