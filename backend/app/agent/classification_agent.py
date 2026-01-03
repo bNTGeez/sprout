@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 class ClassificationAgent: 
-  """This categorizes transactions."""
+  """ This catgeorizes transactions """
 
   def __init__(self, db: Session):
     self.db = db 

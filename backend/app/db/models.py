@@ -252,11 +252,12 @@ class MerchantNormalizationCache(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 class UserCategorizationCache(Base):
-    """User-specific categorization overrides.
+    """User-specific categorization cache.
 
-    Key behavior:
-    - source="user_feedback" ALWAYS overrides source="agent_learning" gives option for user to change categories for merchant 
-    - updated_at can be used for staleness checks (optional 180-day TTL)
+    Stores the category decision for each (user_id, merchant) pair.
+    
+    Note: normalized_merchant is actually a cache key (uppercase, e.g. "STARBUCKS"),
+    not a human-readable normalized name (e.g. "Starbucks").
     """
     __tablename__ = "user_categorization_cache"
     __table_args__ = (
@@ -267,7 +268,7 @@ class UserCategorizationCache(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    normalized_merchant: Mapped[str] = mapped_column(String(200))
+    normalized_merchant: Mapped[str] = mapped_column(String(200))  # Actually a cache key (uppercase)
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
     is_subscription: Mapped[bool] = mapped_column(default=False)
     tags: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
