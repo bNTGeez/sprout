@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from decimal import Decimal
 from ...db.models import PlaidItem, Account, Transaction
-from .client import client
+from .client import get_plaid_client
 from plaid.model.accounts_get_request import AccountsGetRequest
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
 from ...schemas import AccountData
@@ -15,6 +15,7 @@ def sync_accounts(plaid_item_id: int, db: Session) -> list[Account]:
     raise ValueError(f"Plaid item with id {plaid_item_id} not found")
 
   # Get accounts from Plaid
+  client = get_plaid_client()
   request = AccountsGetRequest(access_token=plaid_item.access_token)
   response = client.accounts_get(request)
   
@@ -201,6 +202,8 @@ def sync_transactions(plaid_item_id: int, db: Session) -> dict:
   total_modified = 0
   total_removed = 0
   
+  client = get_plaid_client()
+  
   while True:
     # Call Plaid API
     request = TransactionsSyncRequest(
@@ -308,11 +311,12 @@ def sync_transactions(plaid_item_id: int, db: Session) -> dict:
         db.delete(deleted)
         total_removed += 1
 
+    # Update cursor for next request (or to save final state)
+    cursor = response["next_cursor"]
+    
     # Check if more data available
     if not response["has_more"]:
       break  # No more data, we're done
-
-    cursor = response["next_cursor"]  # Save cursor for next request
 
   # Commit all changes
   db.commit()
