@@ -96,12 +96,40 @@ def get_current_user(
     
     # Auto-create user if doesn't exist 
     if not user:
+        from ..db.models import Account
+        from decimal import Decimal
+        
         user = User(
             email=user_email,
             name=user_email.split("@")[0],  # Use email prefix as default name
             password_hash="supabase_managed"  # Placeholder since supabase handles auth
         )
         db.add(user)
+        db.flush()  # Flush to get user.id
+        
+        # Create default accounts for new user
+        default_accounts = [
+            Account(
+                user_id=user.id,
+                name="Cash",
+                account_type="cash",
+                provider="manual",
+                balance=Decimal("0"),
+                is_active=True,
+            ),
+            Account(
+                user_id=user.id,
+                name="Checking",
+                account_type="depository",
+                provider="manual",
+                balance=Decimal("0"),
+                is_active=True,
+            ),
+        ]
+        
+        for account in default_accounts:
+            db.add(account)
+        
         db.commit()
         db.refresh(user)
     
