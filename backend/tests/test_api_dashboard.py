@@ -26,11 +26,11 @@ def test_dashboard_empty_state(authed_client, db_session, test_user):
     "spending_breakdown",
     "recent_transactions",
   }
-  assert data["income"] == 0.0
-  assert data["expenses"] == 0.0
-  assert data["savings"] == 0.0
-  assert data["assets"] == 0.0
-  assert data["net_worth"] == 0.0
+  assert Decimal(data["income"]) == Decimal("0")
+  assert Decimal(data["expenses"]) == Decimal("0")
+  assert Decimal(data["savings"]) == Decimal("0")
+  assert Decimal(data["assets"]) == Decimal("0")
+  assert Decimal(data["net_worth"]) == Decimal("0")
   assert data["spending_breakdown"] == []
   assert data["recent_transactions"] == []
 
@@ -135,21 +135,21 @@ def test_dashboard_with_data(authed_client, db_session, test_user):
 
   data = res.json()
 
-  assert data["income"] == pytest.approx(2500.0)
-  assert data["expenses"] == pytest.approx(200.0)
-  assert data["savings"] == pytest.approx(2300.0)
+  assert Decimal(data["income"]) == Decimal("2500")
+  assert Decimal(data["expenses"]) == Decimal("200")
+  assert Decimal(data["savings"]) == Decimal("2300")
 
   # assets = checking+savings+brokerage + holdings_value (brokerage balance is 0 here)
-  assert data["assets"] == pytest.approx(1000.0 + 2000.0 + 0.0 + 3000.0)  # 6000.0
+  assert Decimal(data["assets"]) == Decimal("6000")  # 1000 + 2000 + 0 + 3000
 
   # net_worth = assets - liabilities (liabilities from credit card debt)
-  assert data["net_worth"] == pytest.approx(6000.0 - 500.0)  # 5500.0
+  assert Decimal(data["net_worth"]) == Decimal("5500")  # 6000 - 500
 
   assert len(data["spending_breakdown"]) == 2
   breakdown = {item["category"]: item for item in data["spending_breakdown"]}
 
-  assert breakdown["Dining"]["amount"] == pytest.approx(50.0)
-  assert breakdown["Groceries"]["amount"] == pytest.approx(150.0)
+  assert Decimal(breakdown["Dining"]["amount"]) == Decimal("50")
+  assert Decimal(breakdown["Groceries"]["amount"]) == Decimal("150")
 
   assert breakdown["Dining"]["percentage"] == pytest.approx(round((50.0 / 200.0) * 100, 1))
   assert breakdown["Groceries"]["percentage"] == pytest.approx(round((150.0 / 200.0) * 100, 1))
@@ -227,8 +227,8 @@ def test_dashboard_filters_by_current_month(authed_client, db_session, test_user
   data = res.json()
   
   # Should only include current month's $1000, not last month's $5000
-  assert data["income"] == pytest.approx(1000.0)
-  assert data["savings"] == pytest.approx(1000.0)
+  assert Decimal(data["income"]) == Decimal("1000")
+  assert Decimal(data["savings"]) == Decimal("1000")
 
 def test_dashboard_recent_transactions_ordered(authed_client, db_session, test_user):
   """Tests:

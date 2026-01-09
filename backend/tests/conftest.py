@@ -120,7 +120,8 @@ def db_session(engine):
     except Exception:
       pass
     session.close()
-    transaction.rollback()
+    if transaction.is_active:
+      transaction.rollback()
     connection.close()
 
 
