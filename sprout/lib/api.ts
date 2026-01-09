@@ -215,3 +215,211 @@ export async function fetchAccounts(token: string): Promise<Account[]> {
 
   return response.json();
 }
+
+export async function createTransaction(
+  token: string,
+  data: TransactionCreateRequest
+): Promise<Transaction> {
+  // Add timeout to prevent hanging
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/transactions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.status === 401) {
+      throw new Error("Unauthorized: Please log in again");
+    }
+
+    if (response.status === 400) {
+      const error = await response.json();
+      throw new Error(error.detail || "Invalid transaction data");
+    }
+
+    if (!response.ok) {
+      throw new Error("Failed to create transaction");
+    }
+
+    return response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(
+        "Request timed out. Please check your connection and try again."
+      );
+    }
+    throw error;
+  }
+}
+
+export async function updateTransaction(
+  token: string,
+  id: number,
+  data: TransactionUpdateRequest
+): Promise<Transaction> {
+  console.log("Updating transaction:", id, data);
+
+  // Add timeout to prevent hanging
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/transactions/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.status === 401) {
+      throw new Error("Unauthorized: Please log in again");
+    }
+
+    if (response.status === 404) {
+      throw new Error("Transaction not found");
+    }
+
+    if (response.status === 400 || response.status === 422) {
+      const error = await response.json();
+      console.error("Update error:", error);
+      throw new Error(
+        error.detail || JSON.stringify(error) || "Invalid transaction data"
+      );
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Update failed:", errorText);
+      throw new Error("Failed to update transaction");
+    }
+
+    return response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(
+        "Request timed out. Please check your connection and try again."
+      );
+    }
+    throw error;
+  }
+}
+
+export async function deleteTransaction(
+  token: string,
+  id: number
+): Promise<void> {
+  // Add timeout to prevent hanging
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/transactions/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.status === 401) {
+      throw new Error("Unauthorized: Please log in again");
+    }
+
+    if (response.status === 404) {
+      throw new Error("Transaction not found");
+    }
+
+    if (!response.ok) {
+      throw new Error("Failed to delete transaction");
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(
+        "Request timed out. Please check your connection and try again."
+      );
+    }
+    throw error;
+  }
+}
+
+export async function fetchUncategorizedCount(token: string): Promise<number> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/transactions/uncategorized/count`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch uncategorized count");
+  }
+
+  const data = await response.json();
+  return data.count;
+}
+
+export async function processBatchUncategorized(
+  token: string,
+  limit: number = 100
+): Promise<{ message: string }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for batch
+
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/agents/process-uncategorized?limit=${limit}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        signal: controller.signal,
+      }
+    );
+
+    clearTimeout(timeoutId);
+
+    if (response.status === 401) {
+      throw new Error("Unauthorized: Please log in again");
+    }
+
+    if (!response.ok) {
+      throw new Error("Failed to start batch processing");
+    }
+
+    return response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(
+        "Request timed out. Please check your connection and try again."
+      );
+    }
+    throw error;
+  }
+}

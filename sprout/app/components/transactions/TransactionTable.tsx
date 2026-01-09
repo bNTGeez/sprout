@@ -6,8 +6,17 @@ import { EmptyTransactionState } from "./EmptyTransactionState";
 import { TransactionTableSkeleton } from "./TransactionTableSkeleton";
 import { TransactionError } from "./TransactionError";
 import { TransactionPagination } from "./TransactionPagination";
-import { fetchTransactions } from "@/lib/api";
-import type { Transaction, TransactionFilters } from "@/app/types/transactions";
+import {
+  fetchTransactions,
+  updateTransaction,
+  deleteTransaction,
+} from "@/lib/api";
+import type {
+  Transaction,
+  TransactionFilters,
+  Category,
+  TransactionUpdateRequest,
+} from "@/app/types/transactions";
 
 // Mock data for initial implementation
 const MOCK_TRANSACTIONS = [
@@ -212,12 +221,22 @@ interface TransactionTableProps {
   token: string;
   filters?: TransactionFilters;
   onPageChange?: (page: number) => void;
+  refreshTrigger?: number;
+  categories: Category[];
+  onTransactionUpdate?: () => void;
+  onError?: (message: string) => void;
+  onDataRefresh?: () => void;
 }
 
 export function TransactionTable({
   token,
   filters,
   onPageChange,
+  refreshTrigger,
+  categories,
+  onTransactionUpdate,
+  onError,
+  onDataRefresh,
 }: TransactionTableProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -227,18 +246,29 @@ export function TransactionTable({
     page: 1,
     pages: 1,
   });
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const loadTransactions = async () => {
     try {
       setIsLoading(true);
       setError(null);
       const data = await fetchTransactions(token, filters);
+      
       setTransactions(data.transactions);
       setPagination({
         total: data.total,
         page: data.page,
         pages: data.pages,
       });
+
+      // Show "data refreshed" toast on subsequent loads (not initial)
+      if (!isInitialLoad && onDataRefresh) {
+        onDataRefresh();
+      }
+      
+      if (isInitialLoad) {
+        setIsInitialLoad(false);
+      }
 
       // If current page exceeds total pages, notify parent to redirect
       if (data.page > data.pages && data.pages > 0 && onPageChange) {
@@ -255,7 +285,65 @@ export function TransactionTable({
 
   useEffect(() => {
     loadTransactions();
-  }, [token, filters]);
+  }, [token, filters, refreshTrigger]);
+
+  const handleUpdate = async (
+    id: number,
+    data: TransactionUpdateRequest
+  ): Promise<void> => {
+    // Optimistic update
+    const originalTransactions = [...transactions];
+    const updatedTransactions = transactions.map((tx) =>
+      tx.id === id
+        ? {
+            ...tx,
+            description: data.description || tx.description,
+            amount: data.amount || tx.amount,
+            date: data.date || tx.date,
+            category_id: data.category_id !== undefined ? data.category_id : tx.category_id,
+            notes: data.notes !== undefined ? data.notes : tx.notes,
+            category: data.category_id
+              ? categories.find((c) => c.id === data.category_id) || tx.category
+              : data.category_id === null
+              ? null
+              : tx.category,
+          }
+        : tx
+    );
+    setTransactions(updatedTransactions);
+
+    try {
+      await updateTransaction(token, id, data);
+      // Notify parent if callback provided
+      if (onTransactionUpdate) {
+        onTransactionUpdate();
+      }
+    } catch (error) {
+      // Revert on error
+      setTransactions(originalTransactions);
+      throw error;
+    }
+  };
+
+  const handleDelete = async (id: number): Promise<void> => {
+    // Optimistic delete
+    const originalTransactions = [...transactions];
+    setTransactions(transactions.filter((tx) => tx.id !== id));
+
+    try {
+      await deleteTransaction(token, id);
+      // Refresh the list to get updated pagination
+      await loadTransactions();
+      // Notify parent if callback provided
+      if (onTransactionUpdate) {
+        onTransactionUpdate();
+      }
+    } catch (error) {
+      // Revert on error
+      setTransactions(originalTransactions);
+      throw error;
+    }
+  };
 
   if (isLoading) {
     return <TransactionTableSkeleton />;
@@ -266,11 +354,22 @@ export function TransactionTable({
   }
 
   const isEmpty = transactions.length === 0;
+  
+  // Check if any filters are active
+  const hasActiveFilters = Boolean(
+    filters?.search ||
+    filters?.category_id ||
+    filters?.date_from ||
+    filters?.date_to ||
+    filters?.min_amount ||
+    filters?.max_amount ||
+    filters?.is_uncategorized
+  );
 
   if (isEmpty) {
     return (
       <div className="bg-white rounded-lg shadow">
-        <EmptyTransactionState />
+        <EmptyTransactionState hasFilters={hasActiveFilters} />
       </div>
     );
   }
@@ -318,7 +417,14 @@ export function TransactionTable({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {transactions.map((transaction) => (
-              <TransactionRow key={transaction.id} transaction={transaction} />
+              <TransactionRow
+                key={transaction.id}
+                transaction={transaction}
+                categories={categories}
+                onUpdate={handleUpdate}
+                onDelete={handleDelete}
+                onError={onError || (() => {})}
+              />
             ))}
           </tbody>
         </table>
