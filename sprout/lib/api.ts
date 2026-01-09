@@ -1,4 +1,24 @@
 import type { DashboardData } from "@/app/types/dashboard";
+import type {
+  Transaction,
+  TransactionListResponse,
+  TransactionFilters,
+  Category,
+  Account,
+  TransactionCreateRequest,
+  TransactionUpdateRequest,
+} from "@/app/types/transactions";
+
+// Re-export types for convenience
+export type {
+  Transaction,
+  TransactionListResponse,
+  TransactionFilters,
+  Category,
+  Account,
+  TransactionCreateRequest,
+  TransactionUpdateRequest,
+};
 
 interface BackendDashboardData {
   income: number;
@@ -121,6 +141,76 @@ export async function getPlaidItems(token: string): Promise<any> {
 
   if (!response.ok) {
     throw new Error("Failed to load Plaid items");
+  }
+
+  return response.json();
+}
+
+export async function fetchTransactions(
+  token: string,
+  filters?: TransactionFilters
+): Promise<TransactionListResponse> {
+  const params = new URLSearchParams();
+
+  if (filters?.page) params.append("page", filters.page.toString());
+  if (filters?.limit) params.append("limit", filters.limit.toString());
+  if (filters?.search) params.append("search", filters.search);
+  if (filters?.category_id)
+    params.append("category_id", filters.category_id.toString());
+  if (filters?.date_from) params.append("date_from", filters.date_from);
+  if (filters?.date_to) params.append("date_to", filters.date_to);
+  if (filters?.min_amount) params.append("min_amount", filters.min_amount);
+  if (filters?.max_amount) params.append("max_amount", filters.max_amount);
+  if (filters?.is_uncategorized !== undefined) {
+    params.append("is_uncategorized", filters.is_uncategorized.toString());
+  }
+
+  const url = `${API_BASE_URL}/api/transactions${
+    params.toString() ? `?${params.toString()}` : ""
+  }`;
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch transactions");
+  }
+
+  return response.json();
+}
+
+export async function fetchCategories(token: string): Promise<Category[]> {
+  const response = await fetch(`${API_BASE_URL}/api/categories`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch categories");
+  }
+
+  return response.json();
+}
+
+export async function fetchAccounts(token: string): Promise<Account[]> {
+  const response = await fetch(`${API_BASE_URL}/api/accounts`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch accounts");
   }
 
   return response.json();
