@@ -4,10 +4,11 @@ import type {
   TransactionListResponse,
   TransactionFilters,
   Category,
-  Account,
+  Account as TransactionAccount,
   TransactionCreateRequest,
   TransactionUpdateRequest,
 } from "@/app/types/transactions";
+import type { Account } from "@/app/types/accounts";
 
 // Re-export types for convenience
 export type {

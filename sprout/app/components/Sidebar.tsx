@@ -44,7 +44,7 @@ const Sidebar = () => {
     { href: "/goals", label: "Goals", icon: Target },
     { href: "/budgets", label: "Budgets", icon: Wallet },
     { href: "/transactions", label: "Transactions", icon: Receipt },
-    { href: "/assets", label: "Assets", icon: PieChart },
+    { href: "/accounts", label: "Accounts", icon: PieChart },
   ];
 
   return (
