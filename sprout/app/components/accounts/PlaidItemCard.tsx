@@ -1,48 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Building2, AlertCircle, CheckCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, Building2 } from "lucide-react";
 import { Account } from "@/app/types/accounts";
 import { PlaidItem } from "@/lib/api";
 import { formatCurrency, getAccountIcon, getAccountTypeLabel } from "@/lib/accounts";
+import AccountHealthIndicator from "./AccountHealthIndicator";
 
 interface PlaidItemCardProps {
   plaidItem: PlaidItem;
   accounts: Account[];
+  onReauth?: () => void;
 }
 
-export default function PlaidItemCard({ plaidItem, accounts }: PlaidItemCardProps) {
+export default function PlaidItemCard({ plaidItem, accounts, onReauth }: PlaidItemCardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
   const totalBalance = accounts.reduce(
     (sum, acc) => sum + parseFloat(acc.balance),
     0
   );
-
-  const getStatusIcon = () => {
-    switch (plaidItem.status) {
-      case "good":
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case "error":
-      case "requires_reauth":
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
-      default:
-        return <Building2 className="w-4 h-4 text-gray-400" />;
-    }
-  };
-
-  const getStatusText = () => {
-    switch (plaidItem.status) {
-      case "good":
-        return "Connected";
-      case "error":
-        return "Error";
-      case "requires_reauth":
-        return "Needs Reauth";
-      default:
-        return plaidItem.status;
-    }
-  };
 
   return (
     <div className="bg-white rounded-lg border">
@@ -60,8 +37,11 @@ export default function PlaidItemCard({ plaidItem, accounts }: PlaidItemCardProp
               {plaidItem.institution_name}
             </h3>
             <div className="flex items-center gap-2 mt-1">
-              {getStatusIcon()}
-              <span className="text-sm text-gray-500">{getStatusText()}</span>
+              <AccountHealthIndicator
+                status={plaidItem.status}
+                institutionName={plaidItem.institution_name}
+                onReauth={onReauth}
+              />
               <span className="text-sm text-gray-400">•</span>
               <span className="text-sm text-gray-500">
                 {accounts.length} {accounts.length === 1 ? "account" : "accounts"}

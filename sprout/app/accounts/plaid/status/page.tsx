@@ -26,7 +26,6 @@ export default function PlaidStatusPage() {
 
       // Fetch plaid items
       const items = await fetchPlaidItems(accessToken);
-      console.log("📋 Loaded Plaid items:", items);
       setPlaidItems(items);
 
       // Fetch status for each item
@@ -35,10 +34,9 @@ export default function PlaidStatusPage() {
         items.map(async (item) => {
           try {
             const status = await fetchPlaidItemStatus(accessToken, item.id);
-            console.log(`✅ Status for item ${item.id}:`, status);
             statusMap.set(item.id, status);
           } catch (err) {
-            console.error(`❌ Failed to load status for item ${item.id}:`, err);
+            console.error(`Failed to load status for item ${item.id}:`, err);
           }
         })
       );

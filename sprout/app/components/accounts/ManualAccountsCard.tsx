@@ -3,13 +3,19 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Hand } from "lucide-react";
 import { Account } from "@/app/types/accounts";
-import { formatCurrency, getAccountIcon, getAccountTypeLabel } from "@/lib/accounts";
+import {
+  formatCurrency,
+  getAccountIcon,
+  getAccountTypeLabel,
+} from "@/lib/accounts";
 
 interface ManualAccountsCardProps {
   accounts: Account[];
 }
 
-export default function ManualAccountsCard({ accounts }: ManualAccountsCardProps) {
+export default function ManualAccountsCard({
+  accounts,
+}: ManualAccountsCardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
   const totalBalance = accounts.reduce(
@@ -32,7 +38,8 @@ export default function ManualAccountsCard({ accounts }: ManualAccountsCardProps
             <h3 className="font-semibold text-gray-900">Manual Accounts</h3>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-sm text-gray-500">
-                {accounts.length} {accounts.length === 1 ? "account" : "accounts"}
+                {accounts.length}{" "}
+                {accounts.length === 1 ? "account" : "accounts"}
               </span>
             </div>
           </div>
@@ -40,7 +47,11 @@ export default function ManualAccountsCard({ accounts }: ManualAccountsCardProps
         <div className="flex items-center gap-4">
           <div className="text-right">
             <p className="text-sm text-gray-500">Total Balance</p>
-            <p className={`font-semibold ${totalBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
+            <p
+              className={`font-semibold ${
+                totalBalance >= 0 ? "text-green-600" : "text-red-600"
+              }`}
+            >
               {formatCurrency(totalBalance)}
             </p>
           </div>

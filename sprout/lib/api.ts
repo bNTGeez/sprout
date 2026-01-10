@@ -285,6 +285,33 @@ export async function fetchPlaidItemStatus(
   return response.json();
 }
 
+export async function getReauthLinkToken(
+  token: string,
+  plaidItemId: number
+): Promise<string> {
+  // For reauth, we pass the plaid_item_id to get a link token for that specific item
+  const response = await fetch(
+    `${API_BASE_URL}/api/plaid/link_token/create?plaid_item_id=${plaidItemId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
+    throw new Error(errorData.detail || "Failed to get reauth link token");
+  }
+
+  const data = await response.json();
+  return data.link_token;
+}
+
 export async function triggerPlaidSync(
   token: string,
   plaidItemId: number

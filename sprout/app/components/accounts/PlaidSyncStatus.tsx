@@ -29,13 +29,26 @@ function formatRelativeTime(isoString: string | null): string {
   if (diffDays === 1) return "Yesterday";
   if (diffDays < 7) return `${diffDays} days ago`;
 
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
-export default function PlaidSyncStatus({ status, token, onSyncComplete, onSuccess, onError }: PlaidSyncStatusProps) {
+export default function PlaidSyncStatus({
+  status,
+  token,
+  onSyncComplete,
+  onSuccess,
+  onError,
+}: PlaidSyncStatusProps) {
   const [localError, setLocalError] = useState<string | null>(null);
 
-  const handleSyncComplete = (stats: { accounts_synced: number; transactions_synced: number }) => {
+  const handleSyncComplete = (stats: {
+    accounts_synced: number;
+    transactions_synced: number;
+  }) => {
     setLocalError(null);
     onSyncComplete();
     if (onSuccess) {
@@ -95,8 +108,12 @@ export default function PlaidSyncStatus({ status, token, onSyncComplete, onSucce
         <div className="flex items-center gap-3">
           {getStatusIcon()}
           <div>
-            <h3 className="font-semibold text-gray-900">{status.institution_name}</h3>
-            <span className={`inline-block mt-1 px-2 py-1 text-xs font-medium rounded ${getStatusColor()}`}>
+            <h3 className="font-semibold text-gray-900">
+              {status.institution_name}
+            </h3>
+            <span
+              className={`inline-block mt-1 px-2 py-1 text-xs font-medium rounded ${getStatusColor()}`}
+            >
               {getStatusText()}
             </span>
           </div>
@@ -116,11 +133,15 @@ export default function PlaidSyncStatus({ status, token, onSyncComplete, onSucce
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div className="bg-gray-50 rounded-lg p-4">
           <p className="text-sm text-gray-500 mb-1">Accounts</p>
-          <p className="text-2xl font-bold text-gray-900">{status.accounts_count}</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {status.accounts_count}
+          </p>
         </div>
         <div className="bg-gray-50 rounded-lg p-4">
           <p className="text-sm text-gray-500 mb-1">Transactions</p>
-          <p className="text-2xl font-bold text-gray-900">{status.transactions_count}</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {status.transactions_count}
+          </p>
         </div>
         <div className="bg-gray-50 rounded-lg p-4">
           <p className="text-sm text-gray-500 mb-1">Sync Cursor</p>
@@ -151,7 +172,8 @@ export default function PlaidSyncStatus({ status, token, onSyncComplete, onSucce
           <div>
             <p className="font-medium">Reconnection Required</p>
             <p className="text-yellow-700 mt-1">
-              This account needs to be reconnected. Please use Plaid Link to reauthorize.
+              This account needs to be reconnected. Please use Plaid Link to
+              reauthorize.
             </p>
           </div>
         </div>

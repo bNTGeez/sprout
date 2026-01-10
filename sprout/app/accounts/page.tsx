@@ -8,14 +8,19 @@ import AccountsList from "../components/accounts/AccountsList";
 import AccountsLoading from "../components/accounts/AccountsLoading";
 import EmptyAccountsState from "../components/accounts/EmptyAccountsState";
 import AccountsError from "../components/accounts/AccountsError";
+import ReauthModal from "../components/accounts/ReauthModal";
+import { Toast } from "../components/Toast";
 import { Account } from "../types/accounts";
 
 export default function AccountsPage() {
   const router = useRouter();
+  const [token, setToken] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [plaidItems, setPlaidItems] = useState<PlaidItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reauthModal, setReauthModal] = useState<{ plaidItemId: number; institutionName: string } | null>(null);
+  const [toast, setToast] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
 
   const loadData = async (token: string) => {
     try {
@@ -52,6 +57,7 @@ export default function AccountsPage() {
         return;
       }
 
+      setToken(session.access_token);
       loadData(session.access_token);
     }
 
@@ -66,6 +72,17 @@ export default function AccountsPage() {
 
     if (session) {
       loadData(session.access_token);
+    }
+  };
+
+  const handleReauth = (plaidItemId: number, institutionName: string) => {
+    setReauthModal({ plaidItemId, institutionName });
+  };
+
+  const handleReauthSuccess = () => {
+    setToast({ type: "success", message: "Account reconnected successfully! Syncing data..." });
+    if (token) {
+      loadData(token);
     }
   };
 
@@ -87,7 +104,32 @@ export default function AccountsPage() {
       {!isLoading && !error && accounts.length === 0 && <EmptyAccountsState />}
 
       {!isLoading && !error && accounts.length > 0 && (
-        <AccountsList accounts={accounts} plaidItems={plaidItems} />
+        <AccountsList 
+          accounts={accounts} 
+          plaidItems={plaidItems}
+          onReauth={handleReauth}
+        />
+      )}
+
+      {/* Reauth Modal */}
+      {reauthModal && token && (
+        <ReauthModal
+          isOpen={true}
+          plaidItemId={reauthModal.plaidItemId}
+          institutionName={reauthModal.institutionName}
+          token={token}
+          onClose={() => setReauthModal(null)}
+          onSuccess={handleReauthSuccess}
+        />
+      )}
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

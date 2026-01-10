@@ -7,9 +7,10 @@ import ManualAccountsCard from "./ManualAccountsCard";
 interface AccountsListProps {
   accounts: Account[];
   plaidItems: PlaidItem[];
+  onReauth?: (plaidItemId: number, institutionName: string) => void;
 }
 
-export default function AccountsList({ accounts, plaidItems }: AccountsListProps) {
+export default function AccountsList({ accounts, plaidItems, onReauth }: AccountsListProps) {
   const activeAccounts = accounts.filter((a) => a.is_active);
   
   const totalBalance = activeAccounts.reduce(
@@ -75,6 +76,7 @@ export default function AccountsList({ accounts, plaidItems }: AccountsListProps
               key={plaidItem.id}
               plaidItem={plaidItem}
               accounts={accounts}
+              onReauth={() => onReauth?.(plaidItem.id, plaidItem.institution_name)}
             />
           ))}
         </div>
