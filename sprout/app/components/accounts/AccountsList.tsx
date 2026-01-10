@@ -1,20 +1,42 @@
 import { Account } from "@/app/types/accounts";
+import { PlaidItem } from "@/lib/api";
 import { formatCurrency } from "@/lib/accounts";
-import { Building2 } from "lucide-react";
-import AccountCard from "./AccountCard";
+import PlaidItemCard from "./PlaidItemCard";
+import ManualAccountsCard from "./ManualAccountsCard";
 
 interface AccountsListProps {
   accounts: Account[];
+  plaidItems: PlaidItem[];
 }
 
-export default function AccountsList({ accounts }: AccountsListProps) {
+export default function AccountsList({ accounts, plaidItems }: AccountsListProps) {
   const activeAccounts = accounts.filter((a) => a.is_active);
-  const inactiveAccounts = accounts.filter((a) => !a.is_active);
-
+  
   const totalBalance = activeAccounts.reduce(
     (sum, acc) => sum + parseFloat(acc.balance),
     0
   );
+
+  // Group accounts by plaid_item_id
+  const accountsByPlaidItem = new Map<number, Account[]>();
+  const manualAccounts: Account[] = [];
+
+  activeAccounts.forEach((account) => {
+    if (account.plaid_item_id === null) {
+      manualAccounts.push(account);
+    } else {
+      const existing = accountsByPlaidItem.get(account.plaid_item_id) || [];
+      accountsByPlaidItem.set(account.plaid_item_id, [...existing, account]);
+    }
+  });
+
+  // Match plaid items with their accounts
+  const plaidItemsWithAccounts = plaidItems
+    .map((item) => ({
+      plaidItem: item,
+      accounts: accountsByPlaidItem.get(item.id) || [],
+    }))
+    .filter((item) => item.accounts.length > 0); // Only show items that have accounts
 
   return (
     <div className="space-y-6">
@@ -26,51 +48,45 @@ export default function AccountsList({ accounts }: AccountsListProps) {
         </p>
         <div className="flex gap-4 text-sm">
           <div>
-            <p className="text-blue-100">Active Accounts</p>
+            <p className="text-blue-100">Connected Institutions</p>
+            <p className="font-semibold">{plaidItemsWithAccounts.length}</p>
+          </div>
+          <div>
+            <p className="text-blue-100">Total Accounts</p>
             <p className="font-semibold">{activeAccounts.length}</p>
           </div>
-          {inactiveAccounts.length > 0 && (
+          {manualAccounts.length > 0 && (
             <div>
-              <p className="text-blue-100">Inactive</p>
-              <p className="font-semibold">{inactiveAccounts.length}</p>
+              <p className="text-blue-100">Manual</p>
+              <p className="font-semibold">{manualAccounts.length}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Active Accounts */}
-      {activeAccounts.length > 0 && (
+      {/* Plaid Items */}
+      {plaidItemsWithAccounts.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Connected Institutions
+          </h2>
+          {plaidItemsWithAccounts.map(({ plaidItem, accounts }) => (
+            <PlaidItemCard
+              key={plaidItem.id}
+              plaidItem={plaidItem}
+              accounts={accounts}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Manual Accounts */}
+      {manualAccounts.length > 0 && (
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Active Accounts
+            Manual Accounts
           </h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {activeAccounts.map((account) => (
-              <AccountCard key={account.id} account={account} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Inactive Accounts */}
-      {inactiveAccounts.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold text-gray-500 mb-4">
-            Inactive Accounts
-          </h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {inactiveAccounts.map((account) => (
-              <AccountCard key={account.id} account={account} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {accounts.length === 0 && (
-        <div className="text-center py-12">
-          <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">No accounts found</p>
+          <ManualAccountsCard accounts={manualAccounts} />
         </div>
       )}
     </div>

@@ -92,6 +92,7 @@ class AccountResponse(BaseModel):
     
     id: int
     user_id: int
+    plaid_item_id: Optional[int]
     name: str
     account_type: str
     provider: str

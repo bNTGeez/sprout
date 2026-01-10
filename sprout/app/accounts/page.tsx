@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { fetchAccounts } from "@/lib/api";
+import { fetchAccounts, fetchPlaidItems, PlaidItem } from "@/lib/api";
 import AccountsList from "../components/accounts/AccountsList";
 import AccountsLoading from "../components/accounts/AccountsLoading";
 import EmptyAccountsState from "../components/accounts/EmptyAccountsState";
@@ -13,16 +13,23 @@ import { Account } from "../types/accounts";
 export default function AccountsPage() {
   const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [plaidItems, setPlaidItems] = useState<PlaidItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAccounts = async (token: string) => {
+  const loadData = async (token: string) => {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await fetchAccounts(token);
+      
+      // Fetch both accounts and plaid items in parallel
+      const [accountsData, plaidItemsData] = await Promise.all([
+        fetchAccounts(token),
+        fetchPlaidItems(token),
+      ]);
 
-      setAccounts(data);
+      setAccounts(accountsData);
+      setPlaidItems(plaidItemsData);
     } catch (err) {
       console.error("Failed to load accounts:", err);
       const errorMessage =
@@ -45,7 +52,7 @@ export default function AccountsPage() {
         return;
       }
 
-      loadAccounts(session.access_token);
+      loadData(session.access_token);
     }
 
     checkAuth();
@@ -58,7 +65,7 @@ export default function AccountsPage() {
     } = await supabase.auth.getSession();
 
     if (session) {
-      loadAccounts(session.access_token);
+      loadData(session.access_token);
     }
   };
 
@@ -80,7 +87,7 @@ export default function AccountsPage() {
       {!isLoading && !error && accounts.length === 0 && <EmptyAccountsState />}
 
       {!isLoading && !error && accounts.length > 0 && (
-        <AccountsList accounts={accounts} />
+        <AccountsList accounts={accounts} plaidItems={plaidItems} />
       )}
     </div>
   );

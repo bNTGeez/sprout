@@ -217,6 +217,104 @@ export async function fetchAccounts(token: string): Promise<Account[]> {
   return response.json();
 }
 
+export interface PlaidItem {
+  id: number;
+  institution_name: string;
+  status: string;
+  created_at: string;
+}
+
+export interface PlaidItemsResponse {
+  plaid_items: PlaidItem[];
+}
+
+export async function fetchPlaidItems(token: string): Promise<PlaidItem[]> {
+  const response = await fetch(`${API_BASE_URL}/api/plaid/items`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch Plaid items");
+  }
+
+  const data: PlaidItemsResponse = await response.json();
+  return data.plaid_items;
+}
+
+export interface PlaidItemStatus {
+  plaid_item_id: number;
+  institution_name: string;
+  status: string;
+  accounts_count: number;
+  transactions_count: number;
+  has_cursor: boolean;
+  last_synced: string | null;
+}
+
+export async function fetchPlaidItemStatus(
+  token: string,
+  plaidItemId: number
+): Promise<PlaidItemStatus> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/plaid/status/${plaidItemId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+
+  if (response.status === 404) {
+    throw new Error("Plaid item not found");
+  }
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch Plaid item status");
+  }
+
+  return response.json();
+}
+
+export async function triggerPlaidSync(
+  token: string,
+  plaidItemId: number
+): Promise<{ success: boolean; accounts_synced: number; transactions: { added: number; modified: number; removed: number } }> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/plaid/sync?plaid_item_id=${plaidItemId}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+
+  if (response.status === 404) {
+    throw new Error("Plaid item not found");
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: "Failed to trigger sync" }));
+    throw new Error(errorData.detail || "Failed to trigger sync");
+  }
+
+  return response.json();
+}
+
 export async function createTransaction(
   token: string,
   data: TransactionCreateRequest
