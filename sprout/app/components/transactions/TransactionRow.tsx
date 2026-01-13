@@ -3,12 +3,15 @@
 import { useState, useEffect, useRef } from "react";
 import { Pencil, Trash2, RefreshCw, Check, X } from "lucide-react";
 import { CategoryBadge } from "./CategoryBadge";
+import { GoalBadge } from "./GoalBadge";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import type { Transaction, Category, TransactionUpdateRequest } from "@/app/types/transactions";
+import type { Goal } from "@/app/types/goals";
 
 interface TransactionRowProps {
   transaction: Transaction;
   categories: Category[];
+  goals: Goal[];
   onUpdate: (id: number, data: TransactionUpdateRequest) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
   onError: (message: string) => void;
@@ -17,6 +20,7 @@ interface TransactionRowProps {
 export function TransactionRow({
   transaction,
   categories,
+  goals,
   onUpdate,
   onDelete,
   onError,
@@ -30,12 +34,14 @@ export function TransactionRow({
     amount: string;
     date: string;
     category_id: number | null;
+    goal_id: number | null;
     notes: string;
   }>({
     description: transaction.description,
     amount: Math.abs(parseFloat(transaction.amount)).toString(),
     date: transaction.date,
     category_id: transaction.category_id,
+    goal_id: transaction.goal_id,
     notes: transaction.notes || "",
   });
 
@@ -55,6 +61,7 @@ export function TransactionRow({
       amount: Math.abs(parseFloat(transaction.amount)).toString(),
       date: transaction.date,
       category_id: transaction.category_id,
+      goal_id: transaction.goal_id,
       notes: transaction.notes || "",
     });
   }, [transaction]);
@@ -71,6 +78,7 @@ export function TransactionRow({
       amount: Math.abs(parseFloat(transaction.amount)).toString(),
       date: transaction.date,
       category_id: transaction.category_id,
+      goal_id: transaction.goal_id,
       notes: transaction.notes || "",
     });
   };
@@ -110,6 +118,10 @@ export function TransactionRow({
       
       if (editData.category_id !== transaction.category_id) {
         updatePayload.category_id = editData.category_id;
+      }
+      
+      if (editData.goal_id !== transaction.goal_id) {
+        updatePayload.goal_id = editData.goal_id;
       }
       
       const newNotes = editData.notes.trim() || null;
@@ -214,29 +226,52 @@ export function TransactionRow({
         </td>
 
         {/* Category */}
-        <td className="px-6 py-4 whitespace-nowrap">
-          <select
-            value={editData.category_id || ""}
-            onChange={(e) =>
-              setEditData({
-                ...editData,
-                category_id: e.target.value ? parseInt(e.target.value) : null,
-              })
-            }
-            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={isUpdating}
-          >
-            <option value="">Uncategorized</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.icon} {cat.name}
-              </option>
-            ))}
-          </select>
+        <td className="px-6 py-4">
+          <div className="space-y-2 min-w-[200px]">
+            <select
+              value={editData.category_id || ""}
+              onChange={(e) =>
+                setEditData({
+                  ...editData,
+                  category_id: e.target.value ? parseInt(e.target.value) : null,
+                })
+              }
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={isUpdating}
+            >
+              <option value="">Uncategorized</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.icon} {cat.name}
+                </option>
+              ))}
+            </select>
+            {/* Goal dropdown: only show for income transactions */}
+            {!isExpense && (
+              <select
+                value={editData.goal_id || ""}
+                onChange={(e) =>
+                  setEditData({
+                    ...editData,
+                    goal_id: e.target.value ? parseInt(e.target.value) : null,
+                  })
+                }
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isUpdating}
+              >
+                <option value="">No goal</option>
+                {goals.filter(g => g.is_active).map((goal) => (
+                  <option key={goal.id} value={goal.id}>
+                    {goal.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </td>
 
         {/* Account (read-only) */}
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <td className="px-6 py-4 text-sm text-gray-500 min-w-[200px]">
           {transaction.account.name}
         </td>
 
@@ -324,7 +359,13 @@ export function TransactionRow({
 
       {/* Category */}
       <td className="px-6 py-4 whitespace-nowrap">
-        <CategoryBadge category={transaction.category} />
+        <div className="flex flex-col gap-1">
+          <CategoryBadge category={transaction.category} />
+          {/* Goal badge: show if transaction is linked to a goal */}
+          {transaction.goal && (
+            <GoalBadge goal={transaction.goal} />
+          )}
+        </div>
       </td>
 
       {/* Account */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { TransactionRow } from "./TransactionRow";
 import { EmptyTransactionState } from "./EmptyTransactionState";
 import { TransactionTableSkeleton } from "./TransactionTableSkeleton";
@@ -17,6 +17,7 @@ import type {
   Category,
   TransactionUpdateRequest,
 } from "@/app/types/transactions";
+import type { Goal } from "@/app/types/goals";
 
 // Mock data for initial implementation
 const MOCK_TRANSACTIONS = [
@@ -223,6 +224,7 @@ interface TransactionTableProps {
   onPageChange?: (page: number) => void;
   refreshTrigger?: number;
   categories: Category[];
+  goals: Goal[];
   onTransactionUpdate?: () => void;
   onError?: (message: string) => void;
   onDataRefresh?: () => void;
@@ -234,6 +236,7 @@ export function TransactionTable({
   onPageChange,
   refreshTrigger,
   categories,
+  goals,
   onTransactionUpdate,
   onError,
   onDataRefresh,
@@ -247,6 +250,7 @@ export function TransactionTable({
     pages: 1,
   });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
 
   const loadTransactions = async () => {
     try {
@@ -421,6 +425,7 @@ export function TransactionTable({
                 key={transaction.id}
                 transaction={transaction}
                 categories={categories}
+                goals={goals}
                 onUpdate={handleUpdate}
                 onDelete={handleDelete}
                 onError={onError || (() => {})}

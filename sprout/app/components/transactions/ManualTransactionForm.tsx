@@ -3,12 +3,14 @@
 import { useState, useEffect } from "react";
 import { X, DollarSign, Calendar, FileText, Tag } from "lucide-react";
 import type { Category, Account, TransactionCreateRequest } from "@/app/types/transactions";
+import type { Goal } from "@/app/types/goals";
 
 interface ManualTransactionFormProps {
   isOpen: boolean;
   onClose: () => void;
   categories: Category[];
   accounts: Account[];
+  goals: Goal[];
   onSubmit: (transaction: TransactionCreateRequest) => Promise<void>;
 }
 
@@ -24,6 +26,7 @@ export function ManualTransactionForm({
   onClose,
   categories,
   accounts,
+  goals,
   onSubmit,
 }: ManualTransactionFormProps) {
   const [formData, setFormData] = useState<TransactionCreateRequest>({
@@ -32,6 +35,7 @@ export function ManualTransactionForm({
     date: new Date().toISOString().split("T")[0], // Today's date
     description: "",
     category_id: null,
+    goal_id: null,
     notes: null,
   });
   const [errors, setErrors] = useState<FormErrors>({});
@@ -47,6 +51,7 @@ export function ManualTransactionForm({
         date: new Date().toISOString().split("T")[0],
         description: "",
         category_id: null,
+        goal_id: null,
         notes: null,
       });
       setErrors({});
@@ -362,6 +367,42 @@ export function ManualTransactionForm({
                 </select>
               </div>
             </div>
+
+            {/* Goal (only show for income transactions) */}
+            {transactionType === "income" && (
+              <div>
+                <label
+                  htmlFor="goal_id"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Goal (optional)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🎯</span>
+                  <select
+                    id="goal_id"
+                    value={formData.goal_id || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        goal_id: e.target.value ? parseInt(e.target.value) : null,
+                      })
+                    }
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">No goal</option>
+                    {goals.map((goal) => (
+                      <option key={goal.id} value={goal.id}>
+                        {goal.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Link this income to a savings goal
+                </p>
+              </div>
+            )}
 
             {/* Notes */}
             <div>

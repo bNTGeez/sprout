@@ -9,6 +9,16 @@ import type {
   TransactionUpdateRequest,
 } from "@/app/types/transactions";
 import type { Account } from "@/app/types/accounts";
+import type {
+  Budget,
+  BudgetCreateRequest,
+  BudgetUpdateRequest,
+} from "@/app/types/budgets";
+import type {
+  Goal,
+  GoalCreateRequest,
+  GoalUpdateRequest,
+} from "@/app/types/goals";
 
 // Re-export types for convenience
 export type {
@@ -547,5 +557,225 @@ export async function processBatchUncategorized(
       );
     }
     throw error;
+  }
+}
+
+// ============================================================================
+// Budgets API
+// ============================================================================
+
+export async function fetchBudgets(
+  token: string,
+  month?: number,
+  year?: number
+): Promise<Budget[]> {
+  const params = new URLSearchParams();
+  if (month !== undefined) params.append("month", String(month));
+  if (year !== undefined) params.append("year", String(year));
+  
+  const url = `${API_BASE_URL}/api/budgets${params.toString() ? `?${params.toString()}` : ""}`;
+  
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+  
+  if (!response.ok) {
+    throw new Error("Failed to fetch budgets");
+  }
+  
+  return response.json();
+}
+
+export async function createBudget(
+  token: string,
+  data: BudgetCreateRequest
+): Promise<Budget> {
+  const response = await fetch(`${API_BASE_URL}/api/budgets`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: "Failed to create budget" }));
+    throw new Error(errorData.detail || "Failed to create budget");
+  }
+  
+  return response.json();
+}
+
+export async function updateBudget(
+  token: string,
+  budgetId: number,
+  data: BudgetUpdateRequest
+): Promise<Budget> {
+  const response = await fetch(`${API_BASE_URL}/api/budgets/${budgetId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+  
+  if (response.status === 404) {
+    throw new Error("Budget not found");
+  }
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: "Failed to update budget" }));
+    throw new Error(errorData.detail || "Failed to update budget");
+  }
+  
+  return response.json();
+}
+
+export async function deleteBudget(
+  token: string,
+  budgetId: number
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/budgets/${budgetId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+  
+  if (response.status === 404) {
+    throw new Error("Budget not found");
+  }
+  
+  if (!response.ok) {
+    throw new Error("Failed to delete budget");
+  }
+}
+
+// ============================================================================
+// Goals API
+// ============================================================================
+
+export async function fetchGoals(
+  token: string,
+  isActive?: boolean
+): Promise<Goal[]> {
+  const params = new URLSearchParams();
+  if (isActive !== undefined) params.append("is_active", String(isActive));
+  
+  const url = `${API_BASE_URL}/api/goals${params.toString() ? `?${params.toString()}` : ""}`;
+  
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+  
+  if (!response.ok) {
+    throw new Error("Failed to fetch goals");
+  }
+  
+  return response.json();
+}
+
+export async function createGoal(
+  token: string,
+  data: GoalCreateRequest
+): Promise<Goal> {
+  const response = await fetch(`${API_BASE_URL}/api/goals`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: "Failed to create goal" }));
+    throw new Error(errorData.detail || "Failed to create goal");
+  }
+  
+  return response.json();
+}
+
+export async function updateGoal(
+  token: string,
+  goalId: number,
+  data: GoalUpdateRequest
+): Promise<Goal> {
+  const response = await fetch(`${API_BASE_URL}/api/goals/${goalId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+  
+  if (response.status === 404) {
+    throw new Error("Goal not found");
+  }
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: "Failed to update goal" }));
+    throw new Error(errorData.detail || "Failed to update goal");
+  }
+  
+  return response.json();
+}
+
+export async function deleteGoal(
+  token: string,
+  goalId: number
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/goals/${goalId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+  
+  if (response.status === 404) {
+    throw new Error("Goal not found");
+  }
+  
+  if (!response.ok) {
+    throw new Error("Failed to delete goal");
   }
 }

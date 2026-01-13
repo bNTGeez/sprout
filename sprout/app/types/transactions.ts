@@ -12,11 +12,17 @@ export interface Account {
   account_type: string;
 }
 
+export interface GoalInTransaction {
+  id: number;
+  name: string;
+}
+
 export interface Transaction {
   id: number;
   user_id: number;
   account_id: number;
   category_id: number | null;
+  goal_id: number | null;
   amount: string; // Decimal as string
   date: string; // ISO date
   description: string;
@@ -28,6 +34,7 @@ export interface Transaction {
   updated_at: string;
   category: Category | null;
   account: Account;
+  goal: GoalInTransaction | null;
 }
 
 export interface TransactionListResponse {
@@ -55,6 +62,7 @@ export interface TransactionCreateRequest {
   date: string;
   description: string;
   category_id?: number | null;
+  goal_id?: number | null;
   notes?: string | null;
 }
 
@@ -63,5 +71,6 @@ export interface TransactionUpdateRequest {
   amount?: string;
   date?: string;
   category_id?: number | null;
+  goal_id?: number | null;
   notes?: string | null;
 }

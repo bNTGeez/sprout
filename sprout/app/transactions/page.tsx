@@ -9,13 +9,14 @@ import { ManualTransactionForm } from "../components/transactions/ManualTransact
 import { BatchProcessingButton } from "../components/transactions/BatchProcessingButton";
 import { Toast, ToastType } from "../components/Toast";
 import { createClient } from "@/lib/supabase/client";
-import { fetchCategories, fetchAccounts, createTransaction } from "@/lib/api";
+import { fetchCategories, fetchAccounts, createTransaction, fetchGoals } from "@/lib/api";
 import type {
   TransactionFilters,
   Category,
   Account,
   TransactionCreateRequest,
 } from "@/app/types/transactions";
+import type { Goal } from "@/app/types/goals";
 
 export default function TransactionsPage() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function TransactionsPage() {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
@@ -50,18 +52,20 @@ export default function TransactionsPage() {
     getSession();
   }, []);
 
-  // Fetch categories and accounts for filters
+  // Fetch categories, accounts, and goals for filters and badges
   useEffect(() => {
     const loadFiltersData = async () => {
       if (!token) return;
 
       try {
-        const [categoriesData, accountsData] = await Promise.all([
+        const [categoriesData, accountsData, goalsData] = await Promise.all([
           fetchCategories(token),
           fetchAccounts(token),
+          fetchGoals(token, true), // Only active goals
         ]);
         setCategories(categoriesData);
         setAccounts(accountsData);
+        setGoals(goalsData);
       } catch (error) {
         console.error("Failed to load filter data:", error);
       }
@@ -183,7 +187,7 @@ export default function TransactionsPage() {
     const minAmount = searchParams.get("min_amount");
     const maxAmount = searchParams.get("max_amount");
     const isUncategorized = searchParams.get("is_uncategorized");
-    
+
     return {
       page: currentPage,
       limit: 50,
@@ -292,6 +296,7 @@ export default function TransactionsPage() {
         onPageChange={handlePageChange}
         refreshTrigger={refreshTrigger}
         categories={categories}
+        goals={goals}
         onTransactionUpdate={handleTransactionUpdate}
         onError={handleError}
         onDataRefresh={handleDataRefresh}
@@ -303,6 +308,7 @@ export default function TransactionsPage() {
         onClose={() => setIsFormOpen(false)}
         categories={categories}
         accounts={accounts}
+        goals={goals}
         onSubmit={handleCreateTransaction}
       />
 
