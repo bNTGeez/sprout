@@ -29,23 +29,31 @@ def get_dashboard(
     current_month = today.month
     current_year = today.year
     
+    # Calculate first and last day of current month (date range)
+    first_day = date(current_year, current_month, 1)
+    if current_month == 12:
+        last_day = date(current_year + 1, 1, 1)
+    else:
+        last_day = date(current_year, current_month + 1, 1)
+    
     # Calculate income (sum of positive transactions for current month)
     queryIncome = select(func.coalesce(func.sum(Transaction.amount), Decimal("0.00"))).where(
         Transaction.user_id == current_user.id,
         Transaction.amount > 0,
-        func.extract('month', Transaction.date) == current_month,
-        func.extract('year', Transaction.date) == current_year,
+        Transaction.date >= first_day,
+        Transaction.date < last_day,
     )
-    income = float(db.execute(queryIncome).scalar_one())
+    income = db.execute(queryIncome).scalar_one()
 
     # Calculate expenses (sum of negative transactions for current month)
-    queryExpenses = select(func.coalesce(func.sum(func.abs(Transaction.amount)), Decimal("0.00"))).where(
+    # Use -func.sum() instead of func.abs() per guide
+    queryExpenses = select(func.coalesce(-func.sum(Transaction.amount), Decimal("0.00"))).where(
         Transaction.user_id == current_user.id,
         Transaction.amount < 0,
-        func.extract('month', Transaction.date) == current_month,
-        func.extract('year', Transaction.date) == current_year,
+        Transaction.date >= first_day,
+        Transaction.date < last_day,
     )
-    expenses = float(db.execute(queryExpenses).scalar_one())
+    expenses = db.execute(queryExpenses).scalar_one()
     
     savings = income - expenses
     
@@ -55,31 +63,32 @@ def get_dashboard(
         Account.is_active == True,
         Account.account_type.in_(["checking", "savings", "brokerage"]),
     )
-    account_balances = float(db.execute(queryAccountAssets).scalar_one())
+    account_balances = db.execute(queryAccountAssets).scalar_one()
     
     # Add holdings (investments)
     queryHoldings = select(func.coalesce(func.sum(Holding.total_value), Decimal("0.00"))).where(
         Holding.user_id == current_user.id
     )
-    holdings_value = float(db.execute(queryHoldings).scalar_one())
+    holdings_value = db.execute(queryHoldings).scalar_one()
     
     assets = account_balances + holdings_value
     
     # Calculate liabilities (credit card debt)
-    queryLiabilities = select(func.coalesce(func.sum(func.abs(Account.balance)), Decimal("0.00"))).where(
+    # Use -func.sum() instead of func.abs() for consistency
+    queryLiabilities = select(func.coalesce(-func.sum(Account.balance), Decimal("0.00"))).where(
         Account.user_id == current_user.id,
         Account.is_active == True,
         Account.account_type == "credit_card",
         Account.balance < 0,  # Only negative balances are debt
     )
-    liabilities = float(db.execute(queryLiabilities).scalar_one())
+    liabilities = db.execute(queryLiabilities).scalar_one()
     
     # Net worth = assets - liabilities
     net_worth = assets - liabilities
 
     querySpendingBreakdown = select(
         Category.name,  
-        func.sum(func.abs(Transaction.amount)).label('total')  
+        func.sum(-Transaction.amount).label('total')  # Use -func.sum() instead of func.abs()
     )
 
     querySpendingBreakdown = querySpendingBreakdown.join(
@@ -90,21 +99,22 @@ def get_dashboard(
     querySpendingBreakdown = querySpendingBreakdown.where(
         Transaction.user_id == current_user.id,  
         Transaction.amount < 0,
-        func.extract('month', Transaction.date) == current_month,
-        func.extract('year', Transaction.date) == current_year,
+        Transaction.date >= first_day,
+        Transaction.date < last_day,
     )
 
     querySpendingBreakdown = querySpendingBreakdown.group_by(Category.name)
 
     spending_query = db.execute(querySpendingBreakdown).all()
 
-    total_spending = sum(float(row.total) for row in spending_query) if spending_query else 0.0
+    # Keep as Decimal for calculation, convert to float only for percentage
+    total_spending = sum(row.total for row in spending_query) if spending_query else Decimal("0.00")
 
     spending_breakdown = [
         SpendingBreakdownItem(
             category=row.name,  
-            amount=float(row.total), 
-            percentage=round((float(row.total) / total_spending) * 100, 1) if total_spending > 0 else 0.0
+            amount=row.total,  # Keep as Decimal
+            percentage=round(float((row.total / total_spending) * 100), 1) if total_spending > 0 else 0.0
         )
         for row in spending_query
     ]
@@ -119,7 +129,7 @@ def get_dashboard(
         TransactionItem(
             id=tx.id,
             description=tx.description,
-            amount=float(tx.amount),
+            amount=tx.amount,  # Keep as Decimal
             date=tx.date,
             type="income" if tx.amount >= 0 else "expense"
         )
