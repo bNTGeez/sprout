@@ -27,10 +27,10 @@ const StatCard = ({ title, value, change, changeType }: StatCardProps) => {
     <Card>
       <div className="flex flex-col h-full">
         <h3 className="text-sm font-medium text-gray-900">{title}</h3>
-        <div className="text-2xl font-bold text-gray-900">
+        <div className="text-2xl font-bold font-numbers text-gray-900">
           {formatCurrency(value)}
         </div>
-        {change && <p className={changeColor}>{change}</p>}
+        {change && <p className={`font-numbers ${changeColor}`}>{change}</p>}
       </div>
     </Card>
   );

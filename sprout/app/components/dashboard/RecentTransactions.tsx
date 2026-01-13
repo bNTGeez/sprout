@@ -156,11 +156,11 @@ const RecentTransactions = ({ transactions }: RecentTransactionsProps) => {
               </div>
             </div>
             <div
-              className={`text-sm font-semibold ${transactionTypeColor(
+              className={`text-sm font-semibold font-numbers ${transactionTypeColor(
                 transaction.type
               )}`}
             >
-              {transaction.type === "income" ? "+" : "-"}
+              {transaction.type === "income" ? "" : "-"}
               {formatCurrency(Math.abs(transaction.amount))}
             </div>
           </div>

@@ -291,6 +291,7 @@ class TransactionCreateRequest(BaseModel):
     category_id: Optional[int] = None
     goal_id: Optional[int] = None
     notes: Optional[str] = None
+    normalized_merchant: Optional[str] = None
 
 
 class TransactionUpdateRequest(BaseModel):
@@ -301,6 +302,7 @@ class TransactionUpdateRequest(BaseModel):
     category_id: Optional[int] = None
     goal_id: Optional[int] = None
     notes: Optional[str] = None
+    normalized_merchant: Optional[str] = None
 
 
 class UncategorizedCountResponse(BaseModel):

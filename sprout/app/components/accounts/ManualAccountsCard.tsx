@@ -48,7 +48,7 @@ export default function ManualAccountsCard({
           <div className="text-right">
             <p className="text-sm text-gray-500">Total Balance</p>
             <p
-              className={`font-semibold ${
+              className={`font-semibold font-numbers ${
                 totalBalance >= 0 ? "text-green-600" : "text-red-600"
               }`}
             >
@@ -97,7 +97,7 @@ export default function ManualAccountsCard({
                   </div>
                 </div>
                 <p
-                  className={`font-semibold ${
+                  className={`font-semibold font-numbers ${
                     isPositive ? "text-green-600" : "text-red-600"
                   }`}
                 >

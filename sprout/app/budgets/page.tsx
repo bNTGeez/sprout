@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Calendar, Save, Check, Wallet } from "lucide-react";
+import { getCategoryIcon } from "@/lib/categoryIcons";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchBudgets,
@@ -26,6 +27,7 @@ export default function BudgetsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     type: ToastType;
@@ -238,25 +240,13 @@ export default function BudgetsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">Budgets</h1>
-          
-          {/* Month/Year Navigation */}
-          <div className="mt-2 flex items-center gap-3">
-            {/* Previous Month Button */}
-            <button
-              type="button"
-              onClick={handlePreviousMonth}
-              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Previous month"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-
-            {/* Month/Year Selector */}
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* Page Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-bold text-gray-900">Budgets</h1>
+            {/* Month/Year Navigation */}
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
@@ -283,44 +273,44 @@ export default function BudgetsPage() {
                 className="w-20 px-3 py-1.5 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-
-            {/* Next Month Button */}
-            <button
-              type="button"
-              onClick={handleNextMonth}
-              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Next month"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-
-            {/* Current Month Button */}
-            {!isCurrentMonth && (
+          </div>
+          <div className="flex items-center gap-2">
+            {isEditMode ? (
               <button
                 type="button"
-                onClick={goToCurrentMonth}
-                className="ml-2 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                title="Go to current month"
+                onClick={() => setIsEditMode(false)}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2"
               >
-                Today
+                <Check className="w-4 h-4" />
+                Save
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsEditMode(true)}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Pencil className="w-4 h-4" />
+                Edit
               </button>
             )}
+            <button
+              type="button"
+              onClick={handleAddClick}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Budget
+            </button>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleAddClick}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add Budget
-        </button>
-      </div>
 
-      {/* Budgets Grid */}
+        {/* Budgets Grid */}
       {budgets.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
-          <div className="text-gray-400 text-5xl mb-4">💰</div>
+          <div className="flex justify-center mb-4">
+            <Wallet className="w-12 h-12 text-gray-400" />
+          </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No budgets yet</h3>
           <p className="text-gray-500 mb-4">
             Create your first budget to track spending by category
@@ -369,21 +359,12 @@ export default function BudgetsPage() {
 
                 {/* Budget Amount */}
                 <div className="mb-4">
-                  <div className="text-sm text-gray-500 mb-1">Budget</div>
-                  <div className="text-2xl font-bold text-gray-900">
-                    ${amount.toFixed(2)}
-                  </div>
+                  <div className="text-sm text-gray-500 mb-1 font-numbers">Budget ${amount.toFixed(2)}</div>
                 </div>
 
                 {/* Progress Bar */}
                 <div className="mb-4">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">Spent</span>
-                    <span className="font-medium text-gray-900">
-                      ${spent.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                     <div
                       className={`h-2 rounded-full transition-all ${
                         budget.is_over_budget
@@ -395,16 +376,8 @@ export default function BudgetsPage() {
                       style={{ width: `${Math.min(percentUsed, 100)}%` }}
                     ></div>
                   </div>
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>{percentUsed.toFixed(1)}% used</span>
-                    <span
-                      className={
-                        budget.is_over_budget ? "text-red-600 font-medium" : ""
-                      }
-                    >
-                      ${Math.abs(remaining).toFixed(2)}{" "}
-                      {budget.is_over_budget ? "over" : "left"}
-                    </span>
+                  <div className="text-sm text-gray-600 font-numbers">
+                    Spent: ${spent.toFixed(2)} - {percentUsed.toFixed(1)}% used
                   </div>
                 </div>
               </div>
@@ -413,25 +386,26 @@ export default function BudgetsPage() {
         </div>
       )}
 
-      {/* Budget Form Modal */}
-      <BudgetForm
-        isOpen={isFormOpen}
-        onClose={handleFormClose}
-        categories={categories}
-        budget={editingBudget}
-        defaultMonth={selectedMonth}
-        defaultYear={selectedYear}
-        onSubmit={handleFormSubmit}
-      />
-
-      {/* Toast Notification */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
+        {/* Budget Form Modal */}
+        <BudgetForm
+          isOpen={isFormOpen}
+          onClose={handleFormClose}
+          categories={categories}
+          budget={editingBudget}
+          defaultMonth={selectedMonth}
+          defaultYear={selectedYear}
+          onSubmit={handleFormSubmit}
         />
-      )}
+
+        {/* Toast Notification */}
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
+      </div>
     </div>
   );
 }

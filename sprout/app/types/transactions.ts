@@ -64,6 +64,7 @@ export interface TransactionCreateRequest {
   category_id?: number | null;
   goal_id?: number | null;
   notes?: string | null;
+  normalized_merchant?: string | null;
 }
 
 export interface TransactionUpdateRequest {
@@ -73,4 +74,5 @@ export interface TransactionUpdateRequest {
   category_id?: number | null;
   goal_id?: number | null;
   notes?: string | null;
+  normalized_merchant?: string | null;
 }

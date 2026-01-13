@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, ChevronDown, Search } from "lucide-react";
 import { TransactionTable } from "../components/transactions/TransactionTable";
 import { TransactionFilters as TransactionFiltersComponent } from "../components/transactions/TransactionFilters";
 import { ManualTransactionForm } from "../components/transactions/ManualTransactionForm";
 import { BatchProcessingButton } from "../components/transactions/BatchProcessingButton";
 import { Toast, ToastType } from "../components/Toast";
 import { createClient } from "@/lib/supabase/client";
-import { fetchCategories, fetchAccounts, createTransaction, fetchGoals } from "@/lib/api";
+import { fetchCategories, fetchAccounts, createTransaction, fetchGoals, fetchTransactions } from "@/lib/api";
 import type {
   TransactionFilters,
   Category,
@@ -32,6 +32,12 @@ export default function TransactionsPage() {
     type: ToastType;
   } | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [stats, setStats] = useState<{
+    total: number;
+    income: number;
+    expenses: number;
+  }>({ total: 0, income: 0, expenses: 0 });
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Get page from URL params, default to 1
   const currentPage = parseInt(searchParams.get("page") || "1", 10);
@@ -210,6 +216,45 @@ export default function TransactionsPage() {
     searchParams.get("is_uncategorized"),
   ]);
 
+  // Calculate stats from all matching transactions (fetch with high limit)
+  useEffect(() => {
+    const calculateStats = async () => {
+      if (!token) return;
+
+      try {
+        // Fetch all matching transactions (with high limit) to calculate stats
+        const statsFilters: TransactionFilters = {
+          ...filters,
+          page: 1,
+          limit: 10000, // High limit to get all transactions for stats
+        };
+        const data = await fetchTransactions(token, statsFilters);
+        
+        let totalIncome = 0;
+        let totalExpenses = 0;
+
+        data.transactions.forEach((tx) => {
+          const amount = parseFloat(tx.amount);
+          if (amount > 0) {
+            totalIncome += amount;
+          } else {
+            totalExpenses += Math.abs(amount);
+          }
+        });
+
+        setStats({
+          total: data.total,
+          income: totalIncome,
+          expenses: totalExpenses,
+        });
+      } catch (error) {
+        console.error("Failed to calculate stats:", error);
+      }
+    };
+
+    calculateStats();
+  }, [token, filters, refreshTrigger]);
+
   if (isLoadingAuth || !token) {
     return (
       <div className="space-y-6">
@@ -234,73 +279,89 @@ export default function TransactionsPage() {
     );
   }
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            View and manage all your transactions
-          </p>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* Page Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-bold text-gray-900">Transactions</h1>
+            <p className="text-sm text-gray-500">View and manage your transactions</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <BatchProcessingButton
+              token={token}
+              onProcessingComplete={handleProcessingComplete}
+              onError={handleError}
+            />
+            <button
+              type="button"
+              onClick={() => setIsFormOpen(true)}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Transaction
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <BatchProcessingButton
-            token={token}
-            onProcessingComplete={handleProcessingComplete}
-            onError={handleError}
+
+        {/* Summary Stats */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="text-xs text-gray-500 mb-1">Total Transactions</div>
+            <div className="text-2xl font-bold font-numbers text-gray-900">{stats.total}</div>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="text-xs text-gray-500 mb-1">Total Income</div>
+            <div className="text-2xl font-bold font-numbers text-green-600">
+              ${stats.income.toFixed(2)}
+            </div>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="text-xs text-gray-500 mb-1">Total Expenses</div>
+            <div className="text-2xl font-bold font-numbers text-red-600">
+              -${stats.expenses.toFixed(2)}
+            </div>
+          </div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative mb-6">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search Transactions..."
+            value={searchQuery}
+            onChange={(e) => {
+              handleFilterChange({ ...filters, search: e.target.value || undefined });
+            }}
+            className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
-          <button
-            type="button"
-            onClick={() => setIsFormOpen(true)}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Transaction
-          </button>
         </div>
+
+        {/* Filters */}
+        <div className="mb-6">
+          <TransactionFiltersComponent
+            filters={filters}
+            categories={categories}
+            accounts={accounts}
+            onFilterChange={handleFilterChange}
+            onClearFilters={handleClearFilters}
+          />
+        </div>
+
+        {/* Transaction Table */}
+        <TransactionTable
+          token={token}
+          filters={filters}
+          onPageChange={handlePageChange}
+          refreshTrigger={refreshTrigger}
+          categories={categories}
+          goals={goals}
+          onTransactionUpdate={handleTransactionUpdate}
+          onError={handleError}
+          onDataRefresh={handleDataRefresh}
+        />
       </div>
-
-      {/* Stats Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-500 mb-1">Total Transactions</div>
-          <div className="text-2xl font-bold text-gray-900">10</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-500 mb-1">Total Income</div>
-          <div className="text-2xl font-bold text-green-600">+$3,000.00</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-500 mb-1">Total Expenses</div>
-          <div className="text-2xl font-bold text-red-600">-$1,906.04</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-500 mb-1">Uncategorized</div>
-          <div className="text-2xl font-bold text-orange-600">1</div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <TransactionFiltersComponent
-        filters={filters}
-        categories={categories}
-        accounts={accounts}
-        onFilterChange={handleFilterChange}
-        onClearFilters={handleClearFilters}
-      />
-
-      {/* Transaction Table */}
-      <TransactionTable
-        token={token}
-        filters={filters}
-        onPageChange={handlePageChange}
-        refreshTrigger={refreshTrigger}
-        categories={categories}
-        goals={goals}
-        onTransactionUpdate={handleTransactionUpdate}
-        onError={handleError}
-        onDataRefresh={handleDataRefresh}
-      />
 
       {/* Manual Transaction Form Modal */}
       <ManualTransactionForm

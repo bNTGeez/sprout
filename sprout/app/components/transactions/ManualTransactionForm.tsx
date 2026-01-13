@@ -1,8 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, DollarSign, Calendar, FileText, Tag } from "lucide-react";
-import type { Category, Account, TransactionCreateRequest } from "@/app/types/transactions";
+import {
+  X,
+  DollarSign,
+  Calendar,
+  FileText,
+  Tag,
+  Target,
+  Store,
+} from "lucide-react";
+import type {
+  Category,
+  Account,
+  TransactionCreateRequest,
+} from "@/app/types/transactions";
 import type { Goal } from "@/app/types/goals";
 
 interface ManualTransactionFormProps {
@@ -40,7 +52,9 @@ export function ManualTransactionForm({
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [transactionType, setTransactionType] = useState<"expense" | "income">("expense");
+  const [transactionType, setTransactionType] = useState<"expense" | "income">(
+    "expense"
+  );
 
   // Reset form when modal opens
   useEffect(() => {
@@ -53,6 +67,7 @@ export function ManualTransactionForm({
         category_id: null,
         goal_id: null,
         notes: null,
+        normalized_merchant: null,
       });
       setErrors({});
       setTransactionType("expense");
@@ -111,13 +126,15 @@ export function ManualTransactionForm({
     try {
       // Convert amount to negative for expenses
       const amount = parseFloat(formData.amount);
-      const finalAmount = transactionType === "expense" ? -Math.abs(amount) : Math.abs(amount);
+      const finalAmount =
+        transactionType === "expense" ? -Math.abs(amount) : Math.abs(amount);
 
       await onSubmit({
         ...formData,
         amount: finalAmount.toString(),
         category_id: formData.category_id || null,
         notes: formData.notes?.trim() || null,
+        normalized_merchant: formData.normalized_merchant?.trim() || null,
       });
 
       // Success - form will be reset by useEffect when modal reopens
@@ -143,7 +160,7 @@ export function ManualTransactionForm({
       />
 
       {/* Modal */}
-      <div 
+      <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
         onClick={onClose}
       >
@@ -168,16 +185,15 @@ export function ManualTransactionForm({
           {hasNoAccounts && (
             <div className="mx-6 mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-5 h-5 text-yellow-600">
-                  ⚠️
-                </div>
+                <div className="flex-shrink-0 w-5 h-5 text-yellow-600">⚠️</div>
                 <div>
                   <h3 className="text-sm font-semibold text-yellow-800">
                     No Accounts Available
                   </h3>
                   <p className="mt-1 text-sm text-yellow-700">
-                    You need to connect a bank account or create a manual account before adding transactions. 
-                    Please connect your bank using Plaid or contact support to set up manual accounts.
+                    You need to connect a bank account or create a manual
+                    account before adding transactions. Please connect your bank
+                    using Plaid or contact support to set up manual accounts.
                   </p>
                 </div>
               </div>
@@ -229,7 +245,10 @@ export function ManualTransactionForm({
                 id="account_id"
                 value={formData.account_id}
                 onChange={(e) =>
-                  setFormData({ ...formData, account_id: parseInt(e.target.value) })
+                  setFormData({
+                    ...formData,
+                    account_id: parseInt(e.target.value),
+                  })
                 }
                 disabled={hasNoAccounts}
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
@@ -237,7 +256,9 @@ export function ManualTransactionForm({
                 } ${hasNoAccounts ? "bg-gray-100 cursor-not-allowed" : ""}`}
               >
                 <option value={0}>
-                  {hasNoAccounts ? "No accounts available" : "Select an account"}
+                  {hasNoAccounts
+                    ? "No accounts available"
+                    : "Select an account"}
                 </option>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
@@ -318,7 +339,7 @@ export function ManualTransactionForm({
                 Description <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <FileText className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
                   id="description"
                   type="text"
@@ -333,8 +354,39 @@ export function ManualTransactionForm({
                 />
               </div>
               {errors.description && (
-                <p className="mt-1 text-sm text-red-600">{errors.description}</p>
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.description}
+                </p>
               )}
+            </div>
+
+            {/* Merchant */}
+            <div>
+              <label
+                htmlFor="normalized_merchant"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Merchant (optional)
+              </label>
+              <div className="relative">
+                <Store className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  id="normalized_merchant"
+                  type="text"
+                  placeholder="e.g., Whole Foods, Starbucks, Amazon"
+                  value={formData.normalized_merchant || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      normalized_merchant: e.target.value.trim() || null,
+                    })
+                  }
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                The merchant or business name for this transaction
+              </p>
             </div>
 
             {/* Category */}
@@ -353,7 +405,9 @@ export function ManualTransactionForm({
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      category_id: e.target.value ? parseInt(e.target.value) : null,
+                      category_id: e.target.value
+                        ? parseInt(e.target.value)
+                        : null,
                     })
                   }
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -361,7 +415,7 @@ export function ManualTransactionForm({
                   <option value="">No category (uncategorized)</option>
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
-                      {category.icon} {category.name}
+                      {category.name}
                     </option>
                   ))}
                 </select>
@@ -378,14 +432,16 @@ export function ManualTransactionForm({
                   Goal (optional)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🎯</span>
+                  <Target className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                   <select
                     id="goal_id"
                     value={formData.goal_id || ""}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        goal_id: e.target.value ? parseInt(e.target.value) : null,
+                        goal_id: e.target.value
+                          ? parseInt(e.target.value)
+                          : null,
                       })
                     }
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -434,20 +490,20 @@ export function ManualTransactionForm({
               >
                 Cancel
               </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || hasNoAccounts}
-              className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Add Transaction"
-              )}
-            </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || hasNoAccounts}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Add Transaction"
+                )}
+              </button>
             </div>
           </form>
         </div>

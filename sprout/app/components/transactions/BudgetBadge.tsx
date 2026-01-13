@@ -25,7 +25,7 @@ export function BudgetBadge({ budget }: BudgetBadgeProps) {
       }`}
       title={`${budget.category.name} budget: $${remaining.toFixed(2)} left`}
     >
-      💰 ${Math.abs(remaining).toFixed(2)} {isOverBudget ? "over" : "left"}
+      ${Math.abs(remaining).toFixed(2)} {isOverBudget ? "over" : "left"}
     </span>
   );
 }

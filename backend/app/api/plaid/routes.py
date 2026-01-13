@@ -11,7 +11,7 @@ from plaid.model.link_token_create_request import LinkTokenCreateRequest
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
 from plaid.model.products import Products
 from plaid.model.country_code import CountryCode
-from .client import client
+from .client import get_plaid_client
 from .services import sync_accounts, sync_transactions
 
 router = APIRouter()
@@ -23,6 +23,7 @@ def get_plaid_link(
 ) -> dict:
 
   try:
+    client = get_plaid_client()
     request = LinkTokenCreateRequest(
       products=[Products("auth"), Products("transactions")],
       client_name="Sprout Budget App",
@@ -59,6 +60,7 @@ def plaid_link_callback(
 
   try:
     # Exchange public_token for access_token
+    client = get_plaid_client()
     exchange_request = ItemPublicTokenExchangeRequest(public_token=request.public_token)  
     response = client.item_public_token_exchange(exchange_request)
     access_token = response['access_token']

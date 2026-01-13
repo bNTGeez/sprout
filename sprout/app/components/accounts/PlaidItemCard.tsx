@@ -4,7 +4,11 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp, Building2 } from "lucide-react";
 import { Account } from "@/app/types/accounts";
 import { PlaidItem } from "@/lib/api";
-import { formatCurrency, getAccountIcon, getAccountTypeLabel } from "@/lib/accounts";
+import {
+  formatCurrency,
+  getAccountIcon,
+  getAccountTypeLabel,
+} from "@/lib/accounts";
 import AccountHealthIndicator from "./AccountHealthIndicator";
 
 interface PlaidItemCardProps {
@@ -13,7 +17,11 @@ interface PlaidItemCardProps {
   onReauth?: () => void;
 }
 
-export default function PlaidItemCard({ plaidItem, accounts, onReauth }: PlaidItemCardProps) {
+export default function PlaidItemCard({
+  plaidItem,
+  accounts,
+  onReauth,
+}: PlaidItemCardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
   const totalBalance = accounts.reduce(
@@ -44,7 +52,8 @@ export default function PlaidItemCard({ plaidItem, accounts, onReauth }: PlaidIt
               />
               <span className="text-sm text-gray-400">•</span>
               <span className="text-sm text-gray-500">
-                {accounts.length} {accounts.length === 1 ? "account" : "accounts"}
+                {accounts.length}{" "}
+                {accounts.length === 1 ? "account" : "accounts"}
               </span>
             </div>
           </div>
@@ -52,7 +61,11 @@ export default function PlaidItemCard({ plaidItem, accounts, onReauth }: PlaidIt
         <div className="flex items-center gap-4">
           <div className="text-right">
             <p className="text-sm text-gray-500">Total Balance</p>
-            <p className={`font-semibold ${totalBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
+            <p
+              className={`font-semibold font-numbers ${
+                totalBalance >= 0 ? "text-green-600" : "text-red-600"
+              }`}
+            >
               {formatCurrency(totalBalance)}
             </p>
           </div>
@@ -80,15 +93,7 @@ export default function PlaidItemCard({ plaidItem, accounts, onReauth }: PlaidIt
                 } ${!account.is_active ? "opacity-60" : ""}`}
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`p-1.5 rounded ${
-                      isPositive
-                        ? "bg-green-50 text-green-600"
-                        : "bg-red-50 text-red-600"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                  </div>
+                  <Icon className="w-5 h-5 text-gray-500" />
                   <div>
                     <p className="font-medium text-gray-900">{account.name}</p>
                     <p className="text-xs text-gray-500">
@@ -98,7 +103,7 @@ export default function PlaidItemCard({ plaidItem, accounts, onReauth }: PlaidIt
                   </div>
                 </div>
                 <p
-                  className={`font-semibold ${
+                  className={`font-semibold font-numbers ${
                     isPositive ? "text-green-600" : "text-red-600"
                   }`}
                 >

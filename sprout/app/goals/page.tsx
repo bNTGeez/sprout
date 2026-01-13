@@ -214,52 +214,47 @@ export default function GoalsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Goals</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Track your savings goals and progress
-          </p>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* Page Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-lg font-bold text-gray-900">Goals</h1>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowArchived(!showArchived)}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
+                showArchived
+                  ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              {showArchived ? "Show Active" : "Show Archived"}
+            </button>
+            <button
+              type="button"
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Pencil className="w-4 h-4" />
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={handleAddClick}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Goal
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setShowArchived(!showArchived)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
-              showArchived
-                ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            {showArchived ? (
-              <>
-                <ArchiveRestore className="w-4 h-4" />
-                Show Active
-              </>
-            ) : (
-              <>
-                <ArchiveRestore className="w-4 h-4" />
-                Show Archived
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={handleAddClick}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Goal
-          </button>
-        </div>
-      </div>
 
-      {/* Goals Grid */}
+        {/* Goals Grid */}
       {goals.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
-          <div className="text-gray-400 text-5xl mb-4">🎯</div>
+          <div className="flex justify-center mb-4">
+            <Target className="w-12 h-12 text-gray-400" />
+          </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             {showArchived ? "No archived goals" : "No goals yet"}
           </h3>
@@ -293,21 +288,6 @@ export default function GoalsPage() {
                     </h3>
                   </div>
                   <div className="flex items-center gap-2">
-                    {goal.is_met ? (
-                      <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800">
-                        Goal met
-                      </span>
-                    ) : goal.on_track !== null ? (
-                      <span
-                        className={`text-xs px-2 py-1 rounded ${
-                          goal.on_track
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {goal.on_track ? "On track" : "Behind"}
-                      </span>
-                    ) : null}
                     <button
                       type="button"
                       onClick={() => handleEditClick(goal)}
@@ -316,7 +296,7 @@ export default function GoalsPage() {
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
-                    {goal.is_active ? (
+                    {goal.is_active && (
                       <button
                         type="button"
                         onClick={() => handleDeleteGoal(goal.id)}
@@ -325,80 +305,68 @@ export default function GoalsPage() {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleUnarchiveGoal(goal.id)}
-                        className="text-gray-400 hover:text-green-600 transition-colors"
-                        title="Unarchive goal"
-                      >
-                        <ArchiveRestore className="w-4 h-4" />
-                      </button>
                     )}
                   </div>
                 </div>
 
                 {/* Progress */}
                 <div className="mb-4">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">Progress</span>
-                    <span className="font-medium text-gray-900">
-                      ${current.toFixed(2)} / ${target.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                     <div
                       className="h-2 rounded-full bg-blue-500 transition-all"
                       style={{ width: `${Math.min(progressPercent, 100)}%` }}
                     ></div>
                   </div>
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>{progressPercent.toFixed(1)}% complete</span>
-                    <span>${remaining.toFixed(2)} to go</span>
+                  <div className="text-sm text-gray-600 mb-1 font-numbers">
+                    Progress {progressPercent.toFixed(0)}%
                   </div>
+                  <div className="text-sm font-medium font-numbers text-gray-900 mb-2">
+                    ${current.toFixed(2)} / ${target.toFixed(2)}
+                  </div>
+                  {goal.target_date && (
+                    <div className="text-sm text-gray-600 mb-1">
+                      Target: {new Date(goal.target_date).toLocaleDateString("en-US", {
+                        month: "2-digit",
+                        day: "2-digit",
+                        year: "numeric",
+                      })}
+                    </div>
+                  )}
+                  {goal.monthly_contribution && (
+                    <div className="text-sm text-gray-600 font-numbers">
+                      Monthly Contribution: ${parseFloat(goal.monthly_contribution).toFixed(2)}
+                    </div>
+                  )}
                 </div>
-
-                {/* Target Date */}
-                {goal.target_date && (
-                  <div className="text-sm text-gray-600">
-                    Target: {new Date(goal.target_date).toLocaleDateString()}
-                  </div>
-                )}
-
-                {/* Monthly Contribution */}
-                {goal.monthly_contribution && (
-                  <div className="text-sm text-gray-600">
-                    Monthly: ${parseFloat(goal.monthly_contribution).toFixed(2)}
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Goal Form Modal */}
-      <GoalForm
-        isOpen={isFormOpen}
-        onClose={handleFormClose}
-        goal={editingGoal}
-        onSubmit={async (data) => {
-          if (editingGoal) {
-            await handleUpdateGoal(data as GoalUpdateRequest);
-          } else {
-            await handleCreateGoal(data as GoalCreateRequest);
-          }
-        }}
-      />
-
-      {/* Toast Notification */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
+        {/* Goal Form Modal */}
+        <GoalForm
+          isOpen={isFormOpen}
+          onClose={handleFormClose}
+          goal={editingGoal}
+          onSubmit={async (data) => {
+            if (editingGoal) {
+              await handleUpdateGoal(data as GoalUpdateRequest);
+            } else {
+              await handleCreateGoal(data as GoalCreateRequest);
+            }
+          }}
         />
-      )}
+
+        {/* Toast Notification */}
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
+      </div>
     </div>
   );
 }

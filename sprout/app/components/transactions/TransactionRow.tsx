@@ -36,6 +36,7 @@ export function TransactionRow({
     category_id: number | null;
     goal_id: number | null;
     notes: string;
+    normalized_merchant: string | null;
   }>({
     description: transaction.description,
     amount: Math.abs(parseFloat(transaction.amount)).toString(),
@@ -43,6 +44,7 @@ export function TransactionRow({
     category_id: transaction.category_id,
     goal_id: transaction.goal_id,
     notes: transaction.notes || "",
+    normalized_merchant: transaction.normalized_merchant || null,
   });
 
   const descriptionRef = useRef<HTMLInputElement>(null);
@@ -63,6 +65,7 @@ export function TransactionRow({
       category_id: transaction.category_id,
       goal_id: transaction.goal_id,
       notes: transaction.notes || "",
+      normalized_merchant: transaction.normalized_merchant || null,
     });
   }, [transaction]);
 
@@ -80,6 +83,7 @@ export function TransactionRow({
       category_id: transaction.category_id,
       goal_id: transaction.goal_id,
       notes: transaction.notes || "",
+      normalized_merchant: transaction.normalized_merchant || null,
     });
   };
 
@@ -127,6 +131,11 @@ export function TransactionRow({
       const newNotes = editData.notes.trim() || null;
       if (newNotes !== transaction.notes) {
         updatePayload.notes = newNotes;
+      }
+      
+      const newMerchant = editData.normalized_merchant?.trim() || null;
+      if (newMerchant !== transaction.normalized_merchant) {
+        updatePayload.normalized_merchant = newMerchant;
       }
 
       await onUpdate(transaction.id, updatePayload);
@@ -215,6 +224,20 @@ export function TransactionRow({
             />
             <input
               type="text"
+              value={editData.normalized_merchant || ""}
+              onChange={(e) =>
+                setEditData({
+                  ...editData,
+                  normalized_merchant: e.target.value.trim() || null,
+                })
+              }
+              onKeyDown={handleKeyDown}
+              placeholder="Merchant (optional)"
+              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={isUpdating}
+            />
+            <input
+              type="text"
               value={editData.notes}
               onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
               onKeyDown={handleKeyDown}
@@ -278,8 +301,8 @@ export function TransactionRow({
         {/* Amount */}
         <td className="px-6 py-4 whitespace-nowrap text-right">
           <div className="flex items-center justify-end gap-1">
-            <span className={`text-sm font-semibold ${isExpense ? "text-red-600" : "text-green-600"}`}>
-              {isExpense ? "-$" : "+$"}
+            <span className={`text-sm font-semibold font-numbers ${isExpense ? "text-red-600" : "text-green-600"}`}>
+              {isExpense ? "-$" : "$"}
             </span>
             <input
               type="number"
@@ -288,7 +311,7 @@ export function TransactionRow({
               onChange={(e) => setEditData({ ...editData, amount: e.target.value })}
               onKeyDown={handleKeyDown}
               placeholder="0.00"
-              className="w-24 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-24 px-2 py-1 text-sm text-right font-numbers border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               disabled={isUpdating}
             />
           </div>
@@ -375,8 +398,8 @@ export function TransactionRow({
 
       {/* Amount */}
       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-right">
-        <span className={isExpense ? "text-red-600" : "text-green-600"}>
-          {isExpense ? "-" : "+"}
+        <span className={`font-numbers ${isExpense ? "text-red-600" : "text-green-600"}`}>
+          {isExpense ? "-" : ""}
           {formattedAmount}
         </span>
       </td>

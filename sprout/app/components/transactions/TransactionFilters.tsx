@@ -248,7 +248,7 @@ export function TransactionFilters({
               <option value="">All categories</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
-                  {category.icon} {category.name}
+                  {category.name}
                 </option>
               ))}
             </select>

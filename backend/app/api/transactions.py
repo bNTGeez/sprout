@@ -258,6 +258,7 @@ def create_transaction(
         date=request.date,
         description=request.description,
         notes=request.notes,
+        normalized_merchant=request.normalized_merchant,
         is_subscription=False,
     )
     
@@ -356,6 +357,9 @@ def update_transaction(
     
     if "notes" in update_data:
         transaction.notes = update_data["notes"]
+    
+    if "normalized_merchant" in update_data:
+        transaction.normalized_merchant = update_data["normalized_merchant"]
     
     # Auto-sync goal amount if amount or goal_id changed
     if "amount" in update_data or "goal_id" in update_data:

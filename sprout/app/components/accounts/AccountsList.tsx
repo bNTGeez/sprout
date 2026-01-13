@@ -42,27 +42,11 @@ export default function AccountsList({ accounts, plaidItems, onReauth }: Account
   return (
     <div className="space-y-6">
       {/* Summary Card */}
-      <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-6 text-white">
-        <p className="text-blue-100 text-sm mb-2">Total Net Worth</p>
-        <p className="text-4xl font-bold mb-4">
+      <div className="bg-blue-600 rounded-lg p-6 text-white">
+        <p className="text-white text-sm mb-2">Total Net Worth</p>
+        <p className="text-4xl font-bold font-numbers">
           {formatCurrency(totalBalance)}
         </p>
-        <div className="flex gap-4 text-sm">
-          <div>
-            <p className="text-blue-100">Connected Institutions</p>
-            <p className="font-semibold">{plaidItemsWithAccounts.length}</p>
-          </div>
-          <div>
-            <p className="text-blue-100">Total Accounts</p>
-            <p className="font-semibold">{activeAccounts.length}</p>
-          </div>
-          {manualAccounts.length > 0 && (
-            <div>
-              <p className="text-blue-100">Manual</p>
-              <p className="font-semibold">{manualAccounts.length}</p>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Plaid Items */}

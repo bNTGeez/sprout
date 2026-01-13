@@ -87,50 +87,49 @@ export default function AccountsPage() {
   };
 
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Accounts</h1>
-        <p className="text-gray-500 mt-1">
-          Manage your connected accounts and balances
-        </p>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="mb-6">
+          <h1 className="text-lg font-bold text-gray-900">Accounts</h1>
+        </div>
+
+        {isLoading && <AccountsLoading />}
+
+        {!isLoading && error && (
+          <AccountsError message={error} onRetry={handleRetry} />
+        )}
+
+        {!isLoading && !error && accounts.length === 0 && <EmptyAccountsState />}
+
+        {!isLoading && !error && accounts.length > 0 && (
+          <AccountsList 
+            accounts={accounts} 
+            plaidItems={plaidItems}
+            onReauth={handleReauth}
+          />
+        )}
+
+        {/* Reauth Modal */}
+        {reauthModal && token && (
+          <ReauthModal
+            isOpen={true}
+            plaidItemId={reauthModal.plaidItemId}
+            institutionName={reauthModal.institutionName}
+            token={token}
+            onClose={() => setReauthModal(null)}
+            onSuccess={handleReauthSuccess}
+          />
+        )}
+
+        {/* Toast Notifications */}
+        {toast && (
+          <Toast
+            type={toast.type}
+            message={toast.message}
+            onClose={() => setToast(null)}
+          />
+        )}
       </div>
-
-      {isLoading && <AccountsLoading />}
-
-      {!isLoading && error && (
-        <AccountsError message={error} onRetry={handleRetry} />
-      )}
-
-      {!isLoading && !error && accounts.length === 0 && <EmptyAccountsState />}
-
-      {!isLoading && !error && accounts.length > 0 && (
-        <AccountsList 
-          accounts={accounts} 
-          plaidItems={plaidItems}
-          onReauth={handleReauth}
-        />
-      )}
-
-      {/* Reauth Modal */}
-      {reauthModal && token && (
-        <ReauthModal
-          isOpen={true}
-          plaidItemId={reauthModal.plaidItemId}
-          institutionName={reauthModal.institutionName}
-          token={token}
-          onClose={() => setReauthModal(null)}
-          onSuccess={handleReauthSuccess}
-        />
-      )}
-
-      {/* Toast Notifications */}
-      {toast && (
-        <Toast
-          type={toast.type}
-          message={toast.message}
-          onClose={() => setToast(null)}
-        />
-      )}
     </div>
   );
 }
