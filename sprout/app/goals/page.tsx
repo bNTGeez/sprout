@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Target, Pencil, Trash2 } from "lucide-react";
+import { Plus, Target, Pencil, Trash2, ArchiveRestore } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchGoals, createGoal, updateGoal, deleteGoal } from "@/lib/api";
 import { GoalForm } from "../components/goals/GoalForm";
@@ -22,6 +22,7 @@ export default function GoalsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     type: ToastType;
@@ -51,7 +52,11 @@ export default function GoalsPage() {
 
       try {
         setIsLoading(true);
-        const goalsData = await fetchGoals(token, true); // Only active goals
+        // Fetch goals based on showArchived filter
+        const goalsData = await fetchGoals(
+          token,
+          showArchived ? undefined : true
+        );
         setGoals(goalsData);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load goals");
@@ -61,7 +66,7 @@ export default function GoalsPage() {
     };
 
     loadGoals();
-  }, [token]);
+  }, [token, showArchived]);
 
   const handleCreateGoal = async (data: GoalCreateRequest) => {
     try {
@@ -72,7 +77,10 @@ export default function GoalsPage() {
       });
       setIsFormOpen(false);
       // Reload goals
-      const goalsData = await fetchGoals(token, true);
+      const goalsData = await fetchGoals(
+        token,
+        showArchived ? undefined : true
+      );
       setGoals(goalsData);
     } catch (error) {
       setToast({
@@ -96,7 +104,10 @@ export default function GoalsPage() {
       setIsFormOpen(false);
       setEditingGoal(null);
       // Reload goals
-      const goalsData = await fetchGoals(token, true);
+      const goalsData = await fetchGoals(
+        token,
+        showArchived ? undefined : true
+      );
       setGoals(goalsData);
     } catch (error) {
       setToast({
@@ -109,7 +120,11 @@ export default function GoalsPage() {
   };
 
   const handleDeleteGoal = async (goalId: number) => {
-    if (!confirm("Are you sure you want to delete this goal?")) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this goal? This action cannot be undone."
+      )
+    ) {
       return;
     }
 
@@ -120,12 +135,37 @@ export default function GoalsPage() {
         type: "success",
       });
       // Reload goals
-      const goalsData = await fetchGoals(token, true);
+      const goalsData = await fetchGoals(
+        token,
+        showArchived ? undefined : true
+      );
       setGoals(goalsData);
     } catch (error) {
       setToast({
         message:
           error instanceof Error ? error.message : "Failed to delete goal",
+        type: "error",
+      });
+    }
+  };
+
+  const handleUnarchiveGoal = async (goalId: number) => {
+    try {
+      await updateGoal(token, goalId, { is_active: true });
+      setToast({
+        message: "Goal unarchived successfully!",
+        type: "success",
+      });
+      // Reload goals
+      const goalsData = await fetchGoals(
+        token,
+        showArchived ? undefined : true
+      );
+      setGoals(goalsData);
+    } catch (error) {
+      setToast({
+        message:
+          error instanceof Error ? error.message : "Failed to unarchive goal",
         type: "error",
       });
     }
@@ -183,14 +223,37 @@ export default function GoalsPage() {
             Track your savings goals and progress
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleAddClick}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add Goal
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowArchived(!showArchived)}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
+              showArchived
+                ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            {showArchived ? (
+              <>
+                <ArchiveRestore className="w-4 h-4" />
+                Show Active
+              </>
+            ) : (
+              <>
+                <ArchiveRestore className="w-4 h-4" />
+                Show Archived
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={handleAddClick}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Goal
+          </button>
+        </div>
       </div>
 
       {/* Goals Grid */}
@@ -198,10 +261,12 @@ export default function GoalsPage() {
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <div className="text-gray-400 text-5xl mb-4">🎯</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No goals yet
+            {showArchived ? "No archived goals" : "No goals yet"}
           </h3>
           <p className="text-gray-500 mb-4">
-            Create your first savings goal to track your progress
+            {showArchived
+              ? "You don't have any archived goals"
+              : "Create your first savings goal to track your progress"}
           </p>
         </div>
       ) : (
@@ -215,7 +280,9 @@ export default function GoalsPage() {
             return (
               <div
                 key={goal.id}
-                className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow"
+                className={`bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow ${
+                  !goal.is_active ? "opacity-75" : ""
+                }`}
               >
                 {/* Goal Header */}
                 <div className="flex items-center justify-between mb-4">
@@ -249,14 +316,25 @@ export default function GoalsPage() {
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteGoal(goal.id)}
-                      className="text-gray-400 hover:text-red-600 transition-colors"
-                      title="Delete goal"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {goal.is_active ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteGoal(goal.id)}
+                        className="text-gray-400 hover:text-red-600 transition-colors"
+                        title="Delete goal"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleUnarchiveGoal(goal.id)}
+                        className="text-gray-400 hover:text-green-600 transition-colors"
+                        title="Unarchive goal"
+                      >
+                        <ArchiveRestore className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -304,7 +382,13 @@ export default function GoalsPage() {
         isOpen={isFormOpen}
         onClose={handleFormClose}
         goal={editingGoal}
-        onSubmit={editingGoal ? handleUpdateGoal : handleCreateGoal}
+        onSubmit={async (data) => {
+          if (editingGoal) {
+            await handleUpdateGoal(data as GoalUpdateRequest);
+          } else {
+            await handleCreateGoal(data as GoalCreateRequest);
+          }
+        }}
       />
 
       {/* Toast Notification */}

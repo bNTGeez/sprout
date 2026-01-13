@@ -1,8 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, DollarSign, Calendar, Target } from "lucide-react";
-import type { Goal, GoalCreateRequest, GoalUpdateRequest } from "@/app/types/goals";
+import { X, DollarSign, Calendar, Target, Archive } from "lucide-react";
+import type {
+  Goal,
+  GoalCreateRequest,
+  GoalUpdateRequest,
+} from "@/app/types/goals";
 
 interface GoalFormProps {
   isOpen: boolean;
@@ -18,17 +22,13 @@ interface FormErrors {
   monthly_contribution?: string;
 }
 
-export function GoalForm({
-  isOpen,
-  onClose,
-  goal,
-  onSubmit,
-}: GoalFormProps) {
+export function GoalForm({ isOpen, onClose, goal, onSubmit }: GoalFormProps) {
   const [formData, setFormData] = useState({
     name: goal?.name || "",
     target_amount: goal?.target_amount || "",
     target_date: goal?.target_date || "",
     monthly_contribution: goal?.monthly_contribution || "",
+    is_active: goal?.is_active ?? true,
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,6 +43,7 @@ export function GoalForm({
           target_amount: goal.target_amount,
           target_date: goal.target_date || "",
           monthly_contribution: goal.monthly_contribution || "",
+          is_active: goal.is_active,
         });
       } else {
         // Creating new goal
@@ -51,6 +52,7 @@ export function GoalForm({
           target_amount: "",
           target_date: "",
           monthly_contribution: "",
+          is_active: true,
         });
       }
       setErrors({});
@@ -134,6 +136,9 @@ export function GoalForm({
           updateData.monthly_contribution = null;
         }
 
+        // Include is_active in update (for archiving)
+        updateData.is_active = formData.is_active;
+
         await onSubmit(updateData);
       } else {
         // Create new goal
@@ -141,8 +146,7 @@ export function GoalForm({
           name: formData.name.trim(),
           target_amount: formData.target_amount,
           target_date: formData.target_date || undefined,
-          monthly_contribution:
-            formData.monthly_contribution || undefined,
+          monthly_contribution: formData.monthly_contribution || undefined,
         };
 
         await onSubmit(createData);
@@ -328,6 +332,32 @@ export function GoalForm({
               </p>
             </div>
 
+            {/* Archive Option (only when editing) */}
+            {isEditMode && (
+              <div className="pt-4 border-t border-gray-200">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!formData.is_active}
+                    onChange={(e) =>
+                      setFormData({ ...formData, is_active: !e.target.checked })
+                    }
+                    className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Archive className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-700">
+                      Archive this goal
+                    </span>
+                  </div>
+                </label>
+                <p className="mt-1 ml-7 text-xs text-gray-500">
+                  Archived goals are hidden from your active goals list but
+                  remain in your account for reference.
+                </p>
+              </div>
+            )}
+
             {/* Footer */}
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
               <button
@@ -348,8 +378,10 @@ export function GoalForm({
                     <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     {isEditMode ? "Saving..." : "Creating..."}
                   </>
+                ) : isEditMode ? (
+                  "Save Changes"
                 ) : (
-                  isEditMode ? "Save Changes" : "Create Goal"
+                  "Create Goal"
                 )}
               </button>
             </div>
