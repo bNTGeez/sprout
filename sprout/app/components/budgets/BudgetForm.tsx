@@ -3,13 +3,19 @@
 import { useState, useEffect } from "react";
 import { X, DollarSign, Calendar, Tag } from "lucide-react";
 import type { Category } from "@/app/types/transactions";
-import type { Budget, BudgetCreateRequest, BudgetUpdateRequest } from "@/app/types/budgets";
+import type {
+  Budget,
+  BudgetCreateRequest,
+  BudgetUpdateRequest,
+} from "@/app/types/budgets";
 
 interface BudgetFormProps {
   isOpen: boolean;
   onClose: () => void;
   categories: Category[];
   budget?: Budget | null; // If provided, we're editing; otherwise creating
+  defaultMonth?: number; // Default month when creating (defaults to current month)
+  defaultYear?: number; // Default year when creating (defaults to current year)
   onSubmit: (data: BudgetCreateRequest | BudgetUpdateRequest) => Promise<void>;
 }
 
@@ -25,16 +31,22 @@ export function BudgetForm({
   onClose,
   categories,
   budget,
+  defaultMonth,
+  defaultYear,
   onSubmit,
 }: BudgetFormProps) {
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentYear = today.getFullYear();
 
+  // Use provided defaults or fall back to current month/year
+  const initialMonth = defaultMonth ?? currentMonth;
+  const initialYear = defaultYear ?? currentYear;
+
   const [formData, setFormData] = useState({
     category_id: budget?.category_id || 0,
-    month: budget?.month || currentMonth,
-    year: budget?.year || currentYear,
+    month: budget?.month || initialMonth,
+    year: budget?.year || initialYear,
     amount: budget?.amount || "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
@@ -52,17 +64,17 @@ export function BudgetForm({
           amount: budget.amount,
         });
       } else {
-        // Creating new budget
+        // Creating new budget - use provided defaults or current month/year
         setFormData({
           category_id: 0,
-          month: currentMonth,
-          year: currentYear,
+          month: defaultMonth ?? currentMonth,
+          year: defaultYear ?? currentYear,
           amount: "",
         });
       }
       setErrors({});
     }
-  }, [isOpen, budget, currentMonth, currentYear]);
+  }, [isOpen, budget, defaultMonth, defaultYear, currentMonth, currentYear]);
 
   // Close on Escape key
   useEffect(() => {
@@ -207,7 +219,9 @@ export function BudgetForm({
                 </select>
               </div>
               {errors.category_id && (
-                <p className="mt-1 text-sm text-red-600">{errors.category_id}</p>
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.category_id}
+                </p>
               )}
             </div>
 
@@ -236,13 +250,18 @@ export function BudgetForm({
                       errors.month ? "border-red-500" : "border-gray-300"
                     } ${isEditMode ? "bg-gray-100 cursor-not-allowed" : ""}`}
                   >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                      <option key={month} value={month}>
-                        {new Date(2000, month - 1).toLocaleDateString("en-US", {
-                          month: "long",
-                        })}
-                      </option>
-                    ))}
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(
+                      (month) => (
+                        <option key={month} value={month}>
+                          {new Date(2000, month - 1).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "long",
+                            }
+                          )}
+                        </option>
+                      )
+                    )}
                   </select>
                 </div>
                 {errors.month && (
@@ -334,8 +353,10 @@ export function BudgetForm({
                     <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     {isEditMode ? "Saving..." : "Creating..."}
                   </>
+                ) : isEditMode ? (
+                  "Save Changes"
                 ) : (
-                  isEditMode ? "Save Changes" : "Create Budget"
+                  "Create Budget"
                 )}
               </button>
             </div>

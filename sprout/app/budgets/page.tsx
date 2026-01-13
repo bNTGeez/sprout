@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchBudgets,
@@ -31,10 +31,14 @@ export default function BudgetsPage() {
     type: ToastType;
   } | null>(null);
 
-  // Get current month/year
+  // Get current month/year for initial state
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentYear = today.getFullYear();
+
+  // Selected month/year for navigation
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
 
   useEffect(() => {
     const getSession = async () => {
@@ -61,7 +65,7 @@ export default function BudgetsPage() {
       try {
         setIsLoading(true);
         const [budgetsData, categoriesData] = await Promise.all([
-          fetchBudgets(token, currentMonth, currentYear),
+          fetchBudgets(token, selectedMonth, selectedYear),
           fetchCategories(token),
         ]);
         setBudgets(budgetsData);
@@ -74,7 +78,7 @@ export default function BudgetsPage() {
     };
 
     loadData();
-  }, [token, currentMonth, currentYear]);
+  }, [token, selectedMonth, selectedYear]);
 
   const handleCreateBudget = async (data: BudgetCreateRequest) => {
     try {
@@ -84,8 +88,8 @@ export default function BudgetsPage() {
         type: "success",
       });
       setIsFormOpen(false);
-      // Reload budgets
-      const budgetsData = await fetchBudgets(token, currentMonth, currentYear);
+      // Reload budgets for the selected month/year
+      const budgetsData = await fetchBudgets(token, selectedMonth, selectedYear);
       setBudgets(budgetsData);
     } catch (error) {
       setToast({
@@ -110,8 +114,8 @@ export default function BudgetsPage() {
       });
       setIsFormOpen(false);
       setEditingBudget(null);
-      // Reload budgets
-      const budgetsData = await fetchBudgets(token, currentMonth, currentYear);
+      // Reload budgets for the selected month/year
+      const budgetsData = await fetchBudgets(token, selectedMonth, selectedYear);
       setBudgets(budgetsData);
     } catch (error) {
       setToast({
@@ -136,8 +140,8 @@ export default function BudgetsPage() {
         message: "Budget deleted successfully!",
         type: "success",
       });
-      // Reload budgets
-      const budgetsData = await fetchBudgets(token, currentMonth, currentYear);
+      // Reload budgets for the selected month/year
+      const budgetsData = await fetchBudgets(token, selectedMonth, selectedYear);
       setBudgets(budgetsData);
     } catch (error) {
       setToast({
@@ -149,6 +153,42 @@ export default function BudgetsPage() {
       });
     }
   };
+
+  const handlePreviousMonth = () => {
+    if (selectedMonth === 1) {
+      setSelectedMonth(12);
+      setSelectedYear(selectedYear - 1);
+    } else {
+      setSelectedMonth(selectedMonth - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (selectedMonth === 12) {
+      setSelectedMonth(1);
+      setSelectedYear(selectedYear + 1);
+    } else {
+      setSelectedMonth(selectedMonth + 1);
+    }
+  };
+
+  const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedMonth(parseInt(e.target.value));
+  };
+
+  const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const year = parseInt(e.target.value);
+    if (year >= 2000 && year <= 2100) {
+      setSelectedYear(year);
+    }
+  };
+
+  const goToCurrentMonth = () => {
+    setSelectedMonth(currentMonth);
+    setSelectedYear(currentYear);
+  };
+
+  const isCurrentMonth = selectedMonth === currentMonth && selectedYear === currentYear;
 
   const handleEditClick = (budget: Budget) => {
     setEditingBudget(budget);
@@ -163,6 +203,14 @@ export default function BudgetsPage() {
   const handleFormClose = () => {
     setIsFormOpen(false);
     setEditingBudget(null);
+  };
+
+  const handleFormSubmit = async (data: BudgetCreateRequest | BudgetUpdateRequest) => {
+    if (editingBudget) {
+      await handleUpdateBudget(data as BudgetUpdateRequest);
+    } else {
+      await handleCreateBudget(data as BudgetCreateRequest);
+    }
   };
 
   if (isLoadingAuth || isLoading) {
@@ -193,14 +241,71 @@ export default function BudgetsPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex items-center justify-between">
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">Budgets</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {new Date(currentYear, currentMonth - 1).toLocaleDateString("en-US", {
-              month: "long",
-              year: "numeric",
-            })}
-          </p>
+          
+          {/* Month/Year Navigation */}
+          <div className="mt-2 flex items-center gap-3">
+            {/* Previous Month Button */}
+            <button
+              type="button"
+              onClick={handlePreviousMonth}
+              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Previous month"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+
+            {/* Month/Year Selector */}
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                <select
+                  value={selectedMonth}
+                  onChange={handleMonthChange}
+                  className="pl-9 pr-3 py-1.5 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                    <option key={month} value={month}>
+                      {new Date(2000, month - 1).toLocaleDateString("en-US", {
+                        month: "long",
+                      })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <input
+                type="number"
+                min="2000"
+                max="2100"
+                value={selectedYear}
+                onChange={handleYearChange}
+                className="w-20 px-3 py-1.5 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Next Month Button */}
+            <button
+              type="button"
+              onClick={handleNextMonth}
+              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Next month"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+
+            {/* Current Month Button */}
+            {!isCurrentMonth && (
+              <button
+                type="button"
+                onClick={goToCurrentMonth}
+                className="ml-2 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                title="Go to current month"
+              >
+                Today
+              </button>
+            )}
+          </div>
         </div>
         <button
           type="button"
@@ -314,7 +419,9 @@ export default function BudgetsPage() {
         onClose={handleFormClose}
         categories={categories}
         budget={editingBudget}
-        onSubmit={editingBudget ? handleUpdateBudget : handleCreateBudget}
+        defaultMonth={selectedMonth}
+        defaultYear={selectedYear}
+        onSubmit={handleFormSubmit}
       />
 
       {/* Toast Notification */}
