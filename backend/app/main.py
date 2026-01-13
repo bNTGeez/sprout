@@ -13,6 +13,8 @@ from .api.agents.routes import router as agents_router
 from .api.transactions import router as transactions_router
 from .api.categories import router as categories_router
 from .api.accounts import router as accounts_router
+from .api.budgets import router as budgets_router
+from .api.goals import router as goals_router
 
 app = FastAPI(
     title="Sprout",
@@ -36,4 +38,6 @@ app.include_router(agents_router, prefix="/api/agents")
 app.include_router(transactions_router, prefix="/api")
 app.include_router(categories_router, prefix="/api")
 app.include_router(accounts_router, prefix="/api")
+app.include_router(budgets_router, prefix="/api")
+app.include_router(goals_router, prefix="/api")
 

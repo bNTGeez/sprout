@@ -105,6 +105,109 @@ class AccountResponse(BaseModel):
         return str(value)
 
 
+# Budget schemas
+class BudgetResponse(BaseModel):
+    """Budget with computed stats."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    user_id: int
+    category_id: int
+    month: int
+    year: int
+    amount: Decimal
+    created_at: datetime
+    updated_at: datetime
+    category: CategoryResponse
+    # Computed fields
+    spent: Decimal
+    remaining: Decimal
+    percent_used: float
+    is_over_budget: bool
+    
+    @field_serializer('amount', 'spent', 'remaining')
+    def serialize_money(self, value: Decimal) -> str:
+        """Serialize Decimal to string to preserve precision."""
+        return str(value)
+    
+    @field_serializer('created_at', 'updated_at')
+    def serialize_datetime(self, value: datetime) -> str:
+        """Serialize datetime to ISO string."""
+        return value.isoformat()
+
+
+class BudgetCreateRequest(BaseModel):
+    """Request to create a new budget."""
+    category_id: int
+    month: int
+    year: int
+    amount: Decimal
+
+
+class BudgetUpdateRequest(BaseModel):
+    """Request to update a budget."""
+    amount: Optional[Decimal] = None
+
+
+# Goal schemas
+class GoalResponse(BaseModel):
+    """Goal with computed progress."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    user_id: int
+    name: str
+    target_amount: Decimal
+    current_amount: Decimal
+    target_date: Optional[date]
+    monthly_contribution: Optional[Decimal]
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    # Computed fields
+    progress_percent: float
+    remaining: Decimal
+    on_track: Optional[bool]
+    is_met: bool
+    
+    @field_serializer('target_amount', 'current_amount', 'remaining')
+    def serialize_money(self, value: Decimal) -> str:
+        """Serialize Decimal to string to preserve precision."""
+        return str(value)
+    
+    @field_serializer('monthly_contribution')
+    def serialize_optional_money(self, value: Optional[Decimal]) -> Optional[str]:
+        """Serialize optional Decimal to string or None."""
+        return str(value) if value is not None else None
+    
+    @field_serializer('target_date')
+    def serialize_optional_date(self, value: Optional[date]) -> Optional[str]:
+        """Serialize optional date to ISO string or None."""
+        return value.isoformat() if value is not None else None
+    
+    @field_serializer('created_at', 'updated_at')
+    def serialize_datetime(self, value: datetime) -> str:
+        """Serialize datetime to ISO string."""
+        return value.isoformat()
+
+
+class GoalCreateRequest(BaseModel):
+    """Request to create a new goal."""
+    name: str
+    target_amount: Decimal
+    target_date: Optional[date] = None
+    monthly_contribution: Optional[Decimal] = None
+
+
+class GoalUpdateRequest(BaseModel):
+    """Request to update a goal."""
+    name: Optional[str] = None
+    target_amount: Optional[Decimal] = None
+    target_date: Optional[date] = None
+    monthly_contribution: Optional[Decimal] = None
+    is_active: Optional[bool] = None
+
+
 # Transaction schemas
 class CategoryInTransaction(BaseModel):
     """Nested category in transaction response."""
@@ -125,6 +228,14 @@ class AccountInTransaction(BaseModel):
     account_type: str
 
 
+class GoalInTransaction(BaseModel):
+    """Nested goal in transaction response (minimal for badges)."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    name: str
+
+
 class TransactionDetailResponse(BaseModel):
     """Full transaction details."""
     model_config = {"from_attributes": True}
@@ -133,6 +244,7 @@ class TransactionDetailResponse(BaseModel):
     user_id: int
     account_id: int
     category_id: Optional[int]
+    goal_id: Optional[int]
     amount: Decimal
     date: date
     description: str
@@ -144,6 +256,7 @@ class TransactionDetailResponse(BaseModel):
     updated_at: datetime
     category: Optional[CategoryInTransaction]
     account: AccountInTransaction
+    goal: Optional[GoalInTransaction]
     
     @field_serializer('amount')
     def serialize_amount(self, value: Decimal) -> str:
@@ -176,6 +289,7 @@ class TransactionCreateRequest(BaseModel):
     date: date
     description: str
     category_id: Optional[int] = None
+    goal_id: Optional[int] = None
     notes: Optional[str] = None
 
 
@@ -185,6 +299,7 @@ class TransactionUpdateRequest(BaseModel):
     date: Optional[date] = None
     description: Optional[str] = None
     category_id: Optional[int] = None
+    goal_id: Optional[int] = None
     notes: Optional[str] = None
 
 

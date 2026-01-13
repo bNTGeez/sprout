@@ -8,7 +8,7 @@ from datetime import date
 from decimal import Decimal
 
 from ..db.session import get_db
-from ..db.models import User, Transaction, Category, Account
+from ..db.models import User, Transaction, Category, Account, Goal
 from ..core.auth import get_current_user
 from ..schemas import (
     TransactionListResponse,
@@ -19,6 +19,62 @@ from ..schemas import (
 )
 
 router = APIRouter()
+
+
+def update_goal_amount(
+    db: Session,
+    goal_id: int | None,
+    old_goal_id: int | None,
+    new_amount: Decimal,
+    old_amount: Decimal,
+) -> None:
+    """Update goal current_amount based on transaction changes.
+    
+    Per guide section 4: Goals are savings goals.
+    Only positive amounts contribute: contrib(amount) = amount if amount > 0 else 0
+    
+    This handles:
+    - Creating transaction with goal_id
+    - Updating transaction amount
+    - Moving transaction between goals
+    - Removing goal from transaction
+    - Deleting transaction
+    - Sign flips (+ → - or - → +)
+    """
+    def contrib(amount: Decimal) -> Decimal:
+        """Calculate contribution: only positive amounts contribute."""
+        return amount if amount > 0 else Decimal("0.00")
+    
+    old_contrib = contrib(old_amount)
+    new_contrib = contrib(new_amount)
+    
+    # Handle goal changes
+    if old_goal_id != goal_id:
+        # Goal changed - subtract from old, add to new
+        if old_goal_id:
+            # Subtract old contribution from old goal
+            old_goal = db.execute(
+                select(Goal).where(Goal.id == old_goal_id).with_for_update()
+            ).scalar_one_or_none()
+            if old_goal:
+                old_goal.current_amount -= old_contrib
+        
+        if goal_id:
+            # Add new contribution to new goal
+            new_goal = db.execute(
+                select(Goal).where(Goal.id == goal_id).with_for_update()
+            ).scalar_one_or_none()
+            if new_goal:
+                new_goal.current_amount += new_contrib
+    else:
+        # Same goal - apply delta
+        if goal_id:
+            goal = db.execute(
+                select(Goal).where(Goal.id == goal_id).with_for_update()
+            ).scalar_one_or_none()
+            if goal:
+                delta = new_contrib - old_contrib
+                goal.current_amount += delta
 
 
 @router.get("/transactions", response_model=TransactionListResponse)
@@ -84,7 +140,8 @@ def get_transactions(
         select(Transaction)
         .options(
             joinedload(Transaction.category),
-            joinedload(Transaction.account)
+            joinedload(Transaction.account),
+            joinedload(Transaction.goal)
         )
         .where(*base_filters)
         .order_by(Transaction.date.desc(), Transaction.id.desc())
@@ -134,7 +191,8 @@ def get_transaction(
         select(Transaction)
         .options(
             joinedload(Transaction.category),
-            joinedload(Transaction.account)
+            joinedload(Transaction.account),
+            joinedload(Transaction.goal)
         )
         .where(
             Transaction.id == transaction_id,
@@ -178,11 +236,24 @@ def create_transaction(
         if not category:
             raise HTTPException(status_code=400, detail="Invalid category_id")
     
+    # Verify goal belongs to user if provided
+    if request.goal_id is not None:
+        goal = db.execute(
+            select(Goal).where(
+                Goal.id == request.goal_id,
+                Goal.user_id == current_user.id
+            )
+        ).scalar_one_or_none()
+        
+        if not goal:
+            raise HTTPException(status_code=400, detail="Invalid goal_id or goal does not belong to user")
+    
     # Create transaction
     transaction = Transaction(
         user_id=current_user.id,
         account_id=request.account_id,
         category_id=request.category_id,
+        goal_id=request.goal_id,
         amount=request.amount,
         date=request.date,
         description=request.description,
@@ -191,6 +262,18 @@ def create_transaction(
     )
     
     db.add(transaction)
+    db.flush()  # Get transaction.id before updating goal
+    
+    # Auto-sync goal amount
+    if request.goal_id:
+        update_goal_amount(
+            db=db,
+            goal_id=request.goal_id,
+            old_goal_id=None,
+            new_amount=request.amount,
+            old_amount=Decimal("0.00")
+        )
+    
     db.commit()
     
     # Reload with relationships for response
@@ -198,7 +281,8 @@ def create_transaction(
         select(Transaction)
         .options(
             joinedload(Transaction.category),
-            joinedload(Transaction.account)
+            joinedload(Transaction.account),
+            joinedload(Transaction.goal)
         )
         .where(Transaction.id == transaction.id)
     ).unique().scalar_one()
@@ -238,6 +322,22 @@ def update_transaction(
         if not category:
             raise HTTPException(status_code=400, detail="Invalid category_id")
     
+    # Verify goal belongs to user if provided and not None
+    if "goal_id" in update_data and update_data["goal_id"] is not None:
+        goal = db.execute(
+            select(Goal).where(
+                Goal.id == update_data["goal_id"],
+                Goal.user_id == current_user.id
+            )
+        ).scalar_one_or_none()
+        
+        if not goal:
+            raise HTTPException(status_code=400, detail="Invalid goal_id or goal does not belong to user")
+    
+    # Track old values for goal auto-sync
+    old_amount = transaction.amount
+    old_goal_id = transaction.goal_id
+    
     # Update fields that were explicitly provided
     if "amount" in update_data:
         transaction.amount = update_data["amount"]  # Already Decimal from schema
@@ -251,8 +351,21 @@ def update_transaction(
     if "category_id" in update_data:
         transaction.category_id = update_data["category_id"]  # Can be None to clear
     
+    if "goal_id" in update_data:
+        transaction.goal_id = update_data["goal_id"]  # Can be None to clear
+    
     if "notes" in update_data:
         transaction.notes = update_data["notes"]
+    
+    # Auto-sync goal amount if amount or goal_id changed
+    if "amount" in update_data or "goal_id" in update_data:
+        update_goal_amount(
+            db=db,
+            goal_id=transaction.goal_id,
+            old_goal_id=old_goal_id,
+            new_amount=transaction.amount,
+            old_amount=old_amount
+        )
     
     db.commit()
     
@@ -261,7 +374,8 @@ def update_transaction(
         select(Transaction)
         .options(
             joinedload(Transaction.category),
-            joinedload(Transaction.account)
+            joinedload(Transaction.account),
+            joinedload(Transaction.goal)
         )
         .where(Transaction.id == transaction.id)
     ).unique().scalar_one()
@@ -286,6 +400,16 @@ def delete_transaction(
     
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    # Auto-sync goal amount (subtract contribution before deleting)
+    if transaction.goal_id:
+        update_goal_amount(
+            db=db,
+            goal_id=None,  # Removing from goal
+            old_goal_id=transaction.goal_id,
+            new_amount=Decimal("0.00"),
+            old_amount=transaction.amount
+        )
     
     db.delete(transaction)
     db.commit()

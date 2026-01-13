@@ -86,6 +86,7 @@ class Transaction(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"))
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
+    goal_id: Mapped[int | None] = mapped_column(ForeignKey("goals.id", ondelete="SET NULL"), nullable=True, index=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(15, 2))  # Exact decimal for money
     date: Mapped[datetime] = mapped_column(Date)  # Only date, no time
     description: Mapped[str]
@@ -101,6 +102,7 @@ class Transaction(Base):
     user: Mapped["User"] = relationship(back_populates="transactions")
     account: Mapped["Account"] = relationship(back_populates="transactions")
     category: Mapped["Category | None"] = relationship(back_populates="transactions")
+    goal: Mapped["Goal | None"] = relationship(back_populates="transactions")
     insights: Mapped[list["Insight"]] = relationship(back_populates="related_transaction")
 
 
@@ -142,6 +144,7 @@ class Goal(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     user: Mapped["User"] = relationship(back_populates="goals")
+    transactions: Mapped[list["Transaction"]] = relationship(back_populates="goal")
 
 
 class Holding(Base):
@@ -150,20 +153,20 @@ class Holding(Base):
     
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"))
+    account_id: Mapped[int | None] = mapped_column(ForeignKey("accounts.id"), nullable=True)
     symbol: Mapped[str]
-    name: Mapped[str]
-    asset_type: Mapped[str]
-    quantity: Mapped[Decimal] = mapped_column(Numeric(20, 8))  # Supports crypto with 8 decimals
-    current_price: Mapped[Decimal] = mapped_column(Numeric(20, 8))
+    name: Mapped[str | None] = mapped_column(nullable=True)
+    asset_type: Mapped[str | None] = mapped_column(nullable=True)
+    quantity: Mapped[Decimal | None] = mapped_column(Numeric(20, 8), nullable=True)  # Supports crypto with 8 decimals
+    current_price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8), nullable=True)
     total_value: Mapped[Decimal] = mapped_column(Numeric(20, 2))
-    cost_basis: Mapped[Decimal] = mapped_column(Numeric(20, 2))
-    last_updated: Mapped[datetime]
+    cost_basis: Mapped[Decimal | None] = mapped_column(Numeric(20, 2), nullable=True)
+    last_updated: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user: Mapped["User"] = relationship(back_populates="holdings")
-    account: Mapped["Account"] = relationship(back_populates="holdings")
+    account: Mapped["Account | None"] = relationship(back_populates="holdings")
 
 
 class Insight(Base):
