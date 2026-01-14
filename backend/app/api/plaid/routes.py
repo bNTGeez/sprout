@@ -2,10 +2,10 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from ...db.session import get_db
-from ...db.models import User, PlaidItem, Account, Transaction
+from ...db.models import User, PlaidItem, Account, Transaction, Insight
 from ...schemas import PublicTokenRequest
 from ...core.auth import get_current_user
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUser
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
@@ -25,7 +25,7 @@ def get_plaid_link(
   try:
     client = get_plaid_client()
     request = LinkTokenCreateRequest(
-      products=[Products("auth"), Products("transactions")],
+      products=[Products("transactions")],  # Only transactions needed for budgeting app
       client_name="Sprout Budget App",
       country_codes=[CountryCode('US')],
       language='en',
@@ -217,5 +217,72 @@ def sync_plaid_data(
     raise HTTPException(
       status_code=500,
       detail=f"Failed to sync Plaid data: {str(e)}"
+    )
+
+@router.delete("/items/{plaid_item_id}")
+def delete_plaid_item(
+    plaid_item_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)]
+) -> dict:
+  """Delete a PlaidItem and all associated accounts and transactions."""
+
+  # Verify PlaidItem belongs to current user
+  plaid_item = db.execute(
+    select(PlaidItem).filter(
+      PlaidItem.id == plaid_item_id,
+      PlaidItem.user_id == current_user.id
+    )
+  ).scalar_one_or_none()
+  
+  if not plaid_item:
+    raise HTTPException(status_code=404, detail="PlaidItem not found")
+
+  try:
+    # Get all accounts associated with this PlaidItem
+    accounts = db.execute(
+      select(Account).filter(Account.plaid_item_id == plaid_item_id)
+    ).scalars().all()
+    
+    account_ids = [acc.id for acc in accounts]
+    
+    # Delete all transactions associated with these accounts.
+    #
+    # IMPORTANT: We do BULK deletes to avoid an N+1 query storm where SQLAlchemy
+    # lazy-loads `Transaction.insights` one transaction at a time.
+    if account_ids:
+      tx_ids = db.execute(
+        select(Transaction.id).filter(Transaction.account_id.in_(account_ids))
+      ).scalars().all()
+
+      if tx_ids:
+        # Delete insights tied to these transactions first
+        db.execute(
+          delete(Insight).where(Insight.related_transaction_id.in_(list(tx_ids)))
+        )
+
+      # Delete transactions in bulk
+      db.execute(
+        delete(Transaction).where(Transaction.account_id.in_(account_ids))
+      )
+    
+    # Delete all accounts in bulk
+    if account_ids:
+      db.execute(delete(Account).where(Account.id.in_(account_ids)))
+    
+    # Delete the PlaidItem itself
+    db.delete(plaid_item)
+    
+    db.commit()
+    
+    return {
+      "success": True,
+      "message": "Institution disconnected successfully"
+    }
+  except Exception as e:
+    db.rollback()
+    raise HTTPException(
+      status_code=500,
+      detail=f"Failed to disconnect institution: {str(e)}"
     )
 

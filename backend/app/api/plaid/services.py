@@ -1,12 +1,15 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from decimal import Decimal
+import logging
 from ...db.models import PlaidItem, Account, Transaction
 from .client import get_plaid_client
 from plaid.model.accounts_get_request import AccountsGetRequest
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
 from ...schemas import AccountData
 from datetime import datetime, date
+
+logger = logging.getLogger(__name__)
 
 def sync_accounts(plaid_item_id: int, db: Session) -> list[Account]:
   query = select(PlaidItem).filter(PlaidItem.id == plaid_item_id)
@@ -136,52 +139,33 @@ def normalize_amount(plaid_transaction: dict, account_type: str) -> Decimal:
     """
     Convert Plaid transaction amount to our convention.
     
+    Plaid's convention:
+    - amount > 0 = outflow (debit/money leaving account)
+    - amount < 0 = inflow (credit/money entering account)
+    
     Our convention:
-    - Positive = money coming in (income, or payment that reduces debt)
-    - Negative = money going out (expense, or charge that increases debt)
+    - Positive = money coming in (income)
+    - Negative = money going out (expense)
     
-    Plaid always gives positive amounts, so we need to flip the sign based on:
-    1. Transaction type (debit vs credit)
-    2. Account type (checking/savings vs credit_card)
-    3. Transaction code/category (as fallback)
-    
-    IMPORTANT: Credit cards can have BOTH debit and credit transactions:
-    - Debit on credit card = payment you made (reduces debt) = POSITIVE
-    - Credit on credit card = charge on card (increases debt) = NEGATIVE
+    Solution: Simply flip Plaid's sign (multiply by -1).
+    No need to guess from descriptions - Plaid already encodes direction via sign.
     """
-    amount = Decimal(str(plaid_transaction.get("amount", 0)))
-    tx_type = plaid_transaction.get("transaction_type", "debit")
+    raw_amount = Decimal(str(plaid_transaction.get("amount", 0)))
     
-    # For checking/savings accounts:
-    # - debit = money leaving = expense = NEGATIVE
-    # - credit = money coming in = income = POSITIVE
-    if account_type in ["checking", "savings", "brokerage"]:
-        if tx_type == "debit":
-            return -amount
-        elif tx_type == "credit":
-            return amount
-        else:
-            # If transaction_type is missing/unclear, check transaction_code
-            # Most expenses have codes like "purchase", "payment", etc.
-            tx_code = plaid_transaction.get("transaction_code", "").lower()
-            merchant = (plaid_transaction.get("merchant_name") or plaid_transaction.get("name", "")).lower()
-            
-            # If it looks like a payment/refund/credit, it's positive
-            if any(word in merchant for word in ["payment", "refund", "credit", "deposit", "interest"]):
-                return amount
-            # Otherwise, assume it's an expense (negative)
-            return -amount
+    # Get transaction details for logging
+    merchant_name = plaid_transaction.get("merchant_name") or plaid_transaction.get("name") or ""
+    tx_type = plaid_transaction.get("transaction_type", "unknown")
     
-    # For credit cards:
-    # Both payments and charges are expenses (negative)
-    # - debit = payment you made = money leaving = NEGATIVE
-    # - credit = charge on card = expense = NEGATIVE
-    elif account_type == "credit_card":
-        # Both are expenses - always negative
-        return -amount
-    else:
-        # Default: debit = negative, credit = positive
-        return -amount if tx_type == "debit" else amount
+    # Log what Plaid gave us vs what we're storing
+    normalized_amount = -raw_amount  # Flip sign: Plaid >0 (outflow) → our <0 (expense), Plaid <0 (inflow) → our >0 (income)
+    
+    logger.debug(
+        f"Normalizing transaction: name={merchant_name}, "
+        f"account_type={account_type}, tx_type={tx_type}, "
+        f"plaid_amount={raw_amount}, normalized_amount={normalized_amount}"
+    )
+    
+    return normalized_amount
 
 
 def sync_transactions(plaid_item_id: int, db: Session) -> dict:
@@ -329,3 +313,67 @@ def sync_transactions(plaid_item_id: int, db: Session) -> dict:
     "modified": total_modified,
     "removed": total_removed
   }
+
+
+def renormalize_existing_transactions(plaid_item_id: int, db: Session) -> dict:
+  """Re-normalize existing transactions for a PlaidItem based on their stored descriptions.
+  
+  WARNING: This function cannot fix sign issues. Since normalization now simply flips Plaid's sign,
+  and we don't have access to Plaid's original amounts, we cannot reconstruct what Plaid originally sent.
+  To fix transactions with incorrect signs, you must disconnect and reconnect the Plaid item to get
+  fresh data from Plaid with the correct normalization applied.
+  
+  This function may be useful for other normalization changes (e.g., description-based categorization),
+  but not for sign corrections.
+  """
+  # Get all accounts for this PlaidItem
+  accounts = db.execute(
+    select(Account).filter(Account.plaid_item_id == plaid_item_id)
+  ).scalars().all()
+  
+  account_ids = [acc.id for acc in accounts]
+  account_type_map = {acc.id: acc.account_type for acc in accounts}
+  
+  if not account_ids:
+    return {"renormalized": 0}
+  
+  # Get all transactions for these accounts
+  transactions = db.execute(
+    select(Transaction).filter(
+      Transaction.account_id.in_(account_ids),
+      Transaction.plaid_transaction_id.isnot(None)  # Only Plaid transactions
+    )
+  ).scalars().all()
+  
+  renormalized_count = 0
+  
+  for tx in transactions:
+    account_type = account_type_map.get(tx.account_id, "checking")
+    
+    # Reconstruct a Plaid-like transaction dict from stored data
+    # Since normalization is now just a sign flip, we reverse it to get back to Plaid's convention
+    # Our stored amount (positive=income, negative=expense) → Plaid amount (positive=outflow, negative=inflow)
+    plaid_amount = -float(tx.amount)  # Reverse our normalization
+    
+    # Infer transaction_type based on Plaid's convention
+    # Plaid positive = outflow = debit, Plaid negative = inflow = credit
+    inferred_tx_type = "debit" if plaid_amount > 0 else "credit"
+    
+    plaid_like_dict = {
+      "amount": plaid_amount,
+      "transaction_type": inferred_tx_type,
+      "name": tx.description,  # Use stored description
+      "merchant_name": tx.normalized_merchant or tx.description
+    }
+    
+    # Re-normalize using current logic (which just flips the sign)
+    new_amount = normalize_amount(plaid_like_dict, account_type)
+    
+    # Only update if amount changed
+    if new_amount != tx.amount:
+      tx.amount = new_amount
+      renormalized_count += 1
+  
+  db.commit()
+  
+  return {"renormalized": renormalized_count}

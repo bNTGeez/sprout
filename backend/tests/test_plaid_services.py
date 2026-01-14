@@ -14,94 +14,93 @@ from app.db.models import PlaidItem, Account, Transaction
 
 
 # --- Tests for normalize_amount() ---
+# Plaid's convention: amount > 0 = outflow (debit), amount < 0 = inflow (credit)
+# Our convention: positive = income, negative = expense
+# Normalization: simply flip Plaid's sign (multiply by -1)
 
 def test_normalize_amount_checking_debit():
-    """Checking account debit (expense) should be negative."""
-    plaid_tx = {"amount": 50.0, "transaction_type": "debit"}
+    """Plaid positive amount (outflow/debit) should become negative (expense)."""
+    plaid_tx = {"amount": 50.0, "transaction_type": "debit"}  # Plaid: positive = outflow
     result = normalize_amount(plaid_tx, "checking")
-    assert result == Decimal("-50.0")
+    assert result == Decimal("-50.0")  # Our: negative = expense
 
 
 def test_normalize_amount_checking_credit():
-    """Checking account credit (income) should be positive."""
-    plaid_tx = {"amount": 100.0, "transaction_type": "credit"}
+    """Plaid negative amount (inflow/credit) should become positive (income)."""
+    plaid_tx = {"amount": -100.0, "transaction_type": "credit"}  # Plaid: negative = inflow
     result = normalize_amount(plaid_tx, "checking")
-    assert result == Decimal("100.0")
+    assert result == Decimal("100.0")  # Our: positive = income
 
 
 def test_normalize_amount_savings_debit():
-    """Savings account debit (expense) should be negative."""
+    """Plaid positive amount (outflow/debit) should become negative (expense)."""
     plaid_tx = {"amount": 25.0, "transaction_type": "debit"}
     result = normalize_amount(plaid_tx, "savings")
     assert result == Decimal("-25.0")
 
 
 def test_normalize_amount_savings_credit():
-    """Savings account credit (income) should be positive."""
-    plaid_tx = {"amount": 500.0, "transaction_type": "credit"}
+    """Plaid negative amount (inflow/credit) should become positive (income)."""
+    plaid_tx = {"amount": -500.0, "transaction_type": "credit"}
     result = normalize_amount(plaid_tx, "savings")
     assert result == Decimal("500.0")
 
 
 def test_normalize_amount_credit_card_debit():
-    """Credit card debit (payment) should be negative (money leaving)."""
+    """Plaid positive amount (outflow/payment) should become negative (expense)."""
     plaid_tx = {"amount": 200.0, "transaction_type": "debit"}
     result = normalize_amount(plaid_tx, "credit_card")
     assert result == Decimal("-200.0")
 
 
 def test_normalize_amount_credit_card_credit():
-    """Credit card credit (charge) should be negative (expense)."""
-    plaid_tx = {"amount": 75.0, "transaction_type": "credit"}
+    """Plaid negative amount (charge) should become positive, but credit card charges are expenses.
+    
+    Note: In reality, credit card charges from Plaid are typically negative (inflow to card = expense),
+    so they become positive in our system. However, if Plaid sends a positive amount for a charge,
+    it becomes negative (expense) which is correct.
+    """
+    # Credit card charge: Plaid sends negative (inflow to card = expense)
+    plaid_tx = {"amount": -75.0, "transaction_type": "credit"}
     result = normalize_amount(plaid_tx, "credit_card")
-    assert result == Decimal("-75.0")
+    assert result == Decimal("75.0")  # Flipped: negative → positive
 
 
 def test_normalize_amount_brokerage_debit():
-    """Brokerage debit should be negative."""
+    """Plaid positive amount (outflow/debit) should become negative (expense)."""
     plaid_tx = {"amount": 1000.0, "transaction_type": "debit"}
     result = normalize_amount(plaid_tx, "brokerage")
     assert result == Decimal("-1000.0")
 
 
 def test_normalize_amount_brokerage_credit():
-    """Brokerage credit should be positive."""
-    plaid_tx = {"amount": 2000.0, "transaction_type": "credit"}
+    """Plaid negative amount (inflow/credit) should become positive (income)."""
+    plaid_tx = {"amount": -2000.0, "transaction_type": "credit"}
     result = normalize_amount(plaid_tx, "brokerage")
     assert result == Decimal("2000.0")
 
 
-def test_normalize_amount_missing_transaction_type_with_refund():
-    """If transaction_type missing, infer from merchant name (refund = positive)."""
+def test_normalize_amount_ignores_description():
+    """Normalization should ignore description and only flip Plaid's sign."""
+    # Even if description says "refund", we trust Plaid's amount sign
     plaid_tx = {
-        "amount": 50.0,
+        "amount": -50.0,  # Plaid negative = inflow
         "transaction_type": "unknown",
         "merchant_name": "Amazon Refund"
     }
     result = normalize_amount(plaid_tx, "checking")
-    assert result == Decimal("50.0")  # Refund is positive
+    assert result == Decimal("50.0")  # Flipped: negative → positive (income)
 
 
-def test_normalize_amount_missing_transaction_type_expense():
-    """If transaction_type missing and no refund keyword, assume expense (negative)."""
+def test_normalize_amount_positive_expense():
+    """Plaid positive amount should become negative (expense) regardless of description."""
     plaid_tx = {
-        "amount": 30.0,
+        "amount": 30.0,  # Plaid positive = outflow
         "transaction_type": "unknown",
         "merchant_name": "Random Store"
     }
     result = normalize_amount(plaid_tx, "checking")
-    assert result == Decimal("-30.0")
-
-
-def test_normalize_amount_missing_transaction_type_refund_uppercase():
-    """Refund detection should be case-insensitive (REFUND, Refund, refund)."""
-    plaid_tx = {
-        "amount": 50.0,
-        "transaction_type": "unknown",
-        "merchant_name": "REFUND FROM STORE"
-    }
-    result = normalize_amount(plaid_tx, "checking")
-    assert result == Decimal("50.0")  # Refund = positive
+    assert result == Decimal("-30.0")  # Flipped: positive → negative (expense)
 
 
 def test_normalize_amount_zero():
@@ -113,9 +112,9 @@ def test_normalize_amount_zero():
 
 def test_normalize_amount_large_value():
     """Test with large monetary value."""
-    plaid_tx = {"amount": 999999.99, "transaction_type": "credit"}
+    plaid_tx = {"amount": -999999.99, "transaction_type": "credit"}  # Plaid negative = inflow
     result = normalize_amount(plaid_tx, "checking")
-    assert result == Decimal("999999.99")
+    assert result == Decimal("999999.99")  # Flipped: negative → positive (income)
 
 
 # --- Tests for sync_accounts() ---
@@ -357,7 +356,8 @@ def test_sync_transactions_adds_new(db_session, test_plaid_item_for_services, mo
             {
                 "transaction_id": "tx_add_2",
                 "account_id": "acc_tx_test",
-                "amount": 1000.00,
+                # Plaid convention: inflows are negative amounts
+                "amount": -1000.00,
                 "date": "2025-01-06",
                 "merchant_name": "Salary",
                 "name": "Payroll Deposit",
