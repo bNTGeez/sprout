@@ -18,10 +18,16 @@ export default function ManualAccountsCard({
 }: ManualAccountsCardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  const totalBalance = accounts.reduce(
-    (sum, acc) => sum + parseFloat(acc.balance),
-    0
-  );
+  // Calculate total balance: assets (positive) minus liabilities (credit cards, negative)
+  const totalBalance = accounts.reduce((sum, acc) => {
+    const balance = parseFloat(acc.balance);
+    // Credit cards are liabilities - subtract from net worth
+    if (acc.account_type === "credit_card" || acc.account_type === "credit") {
+      return sum - balance; // Subtract credit card balance (it's already positive from Plaid)
+    }
+    // All other accounts (checking, savings, etc.) are assets - add to net worth
+    return sum + balance;
+  }, 0);
 
   return (
     <div className="bg-white rounded-lg border">
@@ -69,7 +75,11 @@ export default function ManualAccountsCard({
           {accounts.map((account, index) => {
             const Icon = getAccountIcon(account.account_type);
             const balanceNum = parseFloat(account.balance);
-            const isPositive = balanceNum >= 0;
+            // Credit cards are liabilities - always show as negative/red for display
+            const isPositive =
+              account.account_type !== "credit_card" &&
+              account.account_type !== "credit" &&
+              balanceNum >= 0;
 
             return (
               <div

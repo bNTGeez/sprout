@@ -4,7 +4,6 @@ import StatCard from "@/app/components/StatCard";
 import SpendingBreakdown from "@/app/components/dashboard/SpendingBreakdown";
 import RecentTransactions from "@/app/components/dashboard/RecentTransactions";
 import Card from "@/app/components/Card";
-import ConnectBank from "@/app/components/plaid/connect_bank";
 import { fetchDashboard } from "@/lib/api";
 import type { DashboardData } from "@/app/types/dashboard";
 import { createClient } from "@/lib/supabase/client";
@@ -56,7 +55,6 @@ const page = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="flex justify-between items-center mx-4 my-6">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <ConnectBank />
       </div>
       <div className="grid grid-cols-12 gap-4 p-4 mx-6">
         <div className="col-span-12 md:col-span-3 flex">

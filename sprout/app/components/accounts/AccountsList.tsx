@@ -8,13 +8,24 @@ interface AccountsListProps {
   accounts: Account[];
   plaidItems: PlaidItem[];
   onReauth?: (plaidItemId: number, institutionName: string) => void;
+  onDisconnect?: () => void;
+  onAddAccounts?: (plaidItemId: number, institutionName: string) => void;
 }
 
-export default function AccountsList({ accounts, plaidItems, onReauth }: AccountsListProps) {
+export default function AccountsList({ accounts, plaidItems, onReauth, onDisconnect, onAddAccounts }: AccountsListProps) {
   const activeAccounts = accounts.filter((a) => a.is_active);
   
+  // Calculate net worth: assets (positive) minus liabilities (credit cards, negative)
   const totalBalance = activeAccounts.reduce(
-    (sum, acc) => sum + parseFloat(acc.balance),
+    (sum, acc) => {
+      const balance = parseFloat(acc.balance);
+      // Credit cards are liabilities - subtract from net worth
+      if (acc.account_type === "credit_card") {
+        return sum - balance; // Subtract credit card balance (it's already positive from Plaid)
+      }
+      // All other accounts (checking, savings, etc.) are assets - add to net worth
+      return sum + balance;
+    },
     0
   );
 
@@ -61,6 +72,8 @@ export default function AccountsList({ accounts, plaidItems, onReauth }: Account
               plaidItem={plaidItem}
               accounts={accounts}
               onReauth={() => onReauth?.(plaidItem.id, plaidItem.institution_name)}
+              onDisconnect={onDisconnect}
+              onAddAccounts={() => onAddAccounts?.(plaidItem.id, plaidItem.institution_name)}
             />
           ))}
         </div>
