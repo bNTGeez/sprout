@@ -2,6 +2,7 @@ import type { DashboardData } from "@/app/types/dashboard";
 import type {
   Transaction,
   TransactionListResponse,
+  TransactionStatsResponse,
   TransactionFilters,
   Category,
   Account as TransactionAccount,
@@ -197,6 +198,49 @@ export async function fetchTransactions(
   return response.json();
 }
 
+export async function fetchTransactionStats(
+  token: string,
+  filters?: Omit<TransactionFilters, "page" | "limit">
+): Promise<{ total: number; income: number; expenses: number }> {
+  const params = new URLSearchParams();
+
+  if (filters?.search) params.append("search", filters.search);
+  if (filters?.category_id)
+    params.append("category_id", filters.category_id.toString());
+  if (filters?.date_from) params.append("date_from", filters.date_from);
+  if (filters?.date_to) params.append("date_to", filters.date_to);
+  if (filters?.min_amount) params.append("min_amount", filters.min_amount);
+  if (filters?.max_amount) params.append("max_amount", filters.max_amount);
+  if (filters?.is_uncategorized !== undefined) {
+    params.append("is_uncategorized", filters.is_uncategorized.toString());
+  }
+
+  const url = `${API_BASE_URL}/api/transactions/stats${
+    params.toString() ? `?${params.toString()}` : ""
+  }`;
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch transaction stats");
+  }
+
+  const data: TransactionStatsResponse = await response.json();
+  return {
+    total: data.total,
+    income: parseFloat(data.income),
+    expenses: parseFloat(data.expenses),
+  };
+}
+
 export async function fetchCategories(token: string): Promise<Category[]> {
   const response = await fetch(`${API_BASE_URL}/api/categories`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -352,6 +396,36 @@ export async function triggerPlaidSync(
   return response.json();
 }
 
+export async function deletePlaidItem(
+  token: string,
+  plaidItemId: number
+): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/plaid/items/${plaidItemId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (response.status === 401) {
+    throw new Error("Unauthorized: Please log in again");
+  }
+
+  if (response.status === 404) {
+    throw new Error("Plaid item not found");
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: "Failed to disconnect institution" }));
+    throw new Error(errorData.detail || "Failed to disconnect institution");
+  }
+
+  return response.json();
+}
+
 export async function createTransaction(
   token: string,
   data: TransactionCreateRequest
@@ -403,7 +477,7 @@ export async function updateTransaction(
   id: number,
   data: TransactionUpdateRequest
 ): Promise<Transaction> {
-  console.log("Updating transaction:", id, data);
+
 
   // Add timeout to prevent hanging
   const controller = new AbortController();

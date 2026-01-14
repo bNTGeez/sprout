@@ -8,8 +8,6 @@ interface TransactionFiltersProps {
   filters: {
     search?: string;
     category_id?: number;
-    date_from?: string;
-    date_to?: string;
     min_amount?: string;
     max_amount?: string;
     is_uncategorized?: boolean;
@@ -74,20 +72,6 @@ export function TransactionFilters({
       ...filters,
       is_uncategorized: e.target.checked || undefined,
       category_id: undefined, // Clear category filter
-    });
-  };
-
-  const handleDateFromChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onFilterChange({
-      ...filters,
-      date_from: e.target.value || undefined,
-    });
-  };
-
-  const handleDateToChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onFilterChange({
-      ...filters,
-      date_to: e.target.value || undefined,
     });
   };
 
@@ -175,8 +159,6 @@ export function TransactionFilters({
   const hasActiveFilters =
     filters.search ||
     filters.category_id ||
-    filters.date_from ||
-    filters.date_to ||
     filters.min_amount ||
     filters.max_amount ||
     filters.is_uncategorized;
@@ -210,8 +192,6 @@ export function TransactionFilters({
               {
                 [
                   filters.category_id,
-                  filters.date_from,
-                  filters.date_to,
                   filters.min_amount,
                   filters.max_amount,
                   filters.is_uncategorized,
@@ -267,32 +247,6 @@ export function TransactionFilters({
                 Uncategorized only
               </span>
             </label>
-          </div>
-
-          {/* Date From */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              From Date
-            </label>
-            <input
-              type="date"
-              value={filters.date_from || ""}
-              onChange={handleDateFromChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Date To */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              To Date
-            </label>
-            <input
-              type="date"
-              value={filters.date_to || ""}
-              onChange={handleDateToChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            />
           </div>
 
           {/* Amount Filter Type */}

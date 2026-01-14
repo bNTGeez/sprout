@@ -2,14 +2,20 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { TransactionTable } from "../components/transactions/TransactionTable";
 import { TransactionFilters as TransactionFiltersComponent } from "../components/transactions/TransactionFilters";
 import { ManualTransactionForm } from "../components/transactions/ManualTransactionForm";
 import { BatchProcessingButton } from "../components/transactions/BatchProcessingButton";
 import { Toast, ToastType } from "../components/Toast";
 import { createClient } from "@/lib/supabase/client";
-import { fetchCategories, fetchAccounts, createTransaction, fetchGoals, fetchTransactions } from "@/lib/api";
+import {
+  fetchCategories,
+  fetchAccounts,
+  createTransaction,
+  fetchGoals,
+  fetchTransactionStats,
+} from "@/lib/api";
 import type {
   TransactionFilters,
   Category,
@@ -17,6 +23,23 @@ import type {
   TransactionCreateRequest,
 } from "@/app/types/transactions";
 import type { Goal } from "@/app/types/goals";
+
+function toISODate(d: Date): string {
+  // YYYY-MM-DD in local time
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getMonthRange(
+  year: number,
+  month1to12: number
+): { date_from: string; date_to: string } {
+  const start = new Date(year, month1to12 - 1, 1);
+  const end = new Date(year, month1to12, 0); // last day of month
+  return { date_from: toISODate(start), date_to: toISODate(end) };
+}
 
 export default function TransactionsPage() {
   const router = useRouter();
@@ -40,6 +63,24 @@ export default function TransactionsPage() {
 
   // Get page from URL params, default to 1
   const currentPage = parseInt(searchParams.get("page") || "1", 10);
+
+  // Month/year navigation (defaults to current month/year)
+  const selectedYear = useMemo(() => {
+    const y = parseInt(searchParams.get("year") || "", 10);
+    return Number.isFinite(y) && y >= 1970 ? y : new Date().getFullYear();
+  }, [searchParams.get("year")]);
+
+  const selectedMonth = useMemo(() => {
+    const m = parseInt(searchParams.get("month") || "", 10);
+    return Number.isFinite(m) && m >= 1 && m <= 12
+      ? m
+      : new Date().getMonth() + 1;
+  }, [searchParams.get("month")]);
+
+  const monthLabel = useMemo(() => {
+    const d = new Date(selectedYear, selectedMonth - 1, 1);
+    return d.toLocaleString("en-US", { month: "long", year: "numeric" });
+  }, [selectedYear, selectedMonth]);
 
   useEffect(() => {
     const getSession = async () => {
@@ -94,19 +135,30 @@ export default function TransactionsPage() {
     router.push(`/transactions?${params.toString()}`);
   };
 
+  const handleMonthChange = (direction: "prev" | "next") => {
+    const d = new Date(selectedYear, selectedMonth - 1, 1);
+    d.setMonth(d.getMonth() + (direction === "next" ? 1 : -1));
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("year", String(d.getFullYear()));
+    params.set("month", String(d.getMonth() + 1));
+    params.set("page", "1"); // reset paging when switching months
+    router.push(`/transactions?${params.toString()}`);
+  };
+
   const handleFilterChange = (
     newFilters: Omit<TransactionFilters, "page" | "limit">
   ) => {
     // Reset to page 1 when filters change
     const params = new URLSearchParams();
     params.set("page", "1");
+    params.set("year", String(selectedYear));
+    params.set("month", String(selectedMonth));
 
     // Add all filter params to URL
     if (newFilters.search) params.set("search", newFilters.search);
     if (newFilters.category_id)
       params.set("category_id", newFilters.category_id.toString());
-    if (newFilters.date_from) params.set("date_from", newFilters.date_from);
-    if (newFilters.date_to) params.set("date_to", newFilters.date_to);
     if (newFilters.min_amount) params.set("min_amount", newFilters.min_amount);
     if (newFilters.max_amount) params.set("max_amount", newFilters.max_amount);
     if (newFilters.is_uncategorized) params.set("is_uncategorized", "true");
@@ -116,7 +168,9 @@ export default function TransactionsPage() {
 
   const handleClearFilters = () => {
     // Clear all filters and reset to page 1
-    router.push("/transactions?page=1");
+    router.push(
+      `/transactions?page=1&year=${selectedYear}&month=${selectedMonth}`
+    );
   };
 
   const handleCreateTransaction = async (data: TransactionCreateRequest) => {
@@ -187,64 +241,45 @@ export default function TransactionsPage() {
   const filters: TransactionFilters = useMemo(() => {
     const search = searchParams.get("search");
     const categoryId = searchParams.get("category_id");
-    const dateFrom = searchParams.get("date_from");
-    const dateTo = searchParams.get("date_to");
     const minAmount = searchParams.get("min_amount");
     const maxAmount = searchParams.get("max_amount");
     const isUncategorized = searchParams.get("is_uncategorized");
+    const { date_from, date_to } = getMonthRange(selectedYear, selectedMonth);
 
     return {
       page: currentPage,
       limit: 50,
       search: search || undefined,
       category_id: categoryId ? parseInt(categoryId, 10) : undefined,
-      date_from: dateFrom || undefined,
-      date_to: dateTo || undefined,
+      date_from,
+      date_to,
       min_amount: minAmount || undefined,
       max_amount: maxAmount || undefined,
       is_uncategorized: isUncategorized === "true" || undefined,
     };
   }, [
     currentPage,
+    selectedYear,
+    selectedMonth,
     searchParams.get("search"),
     searchParams.get("category_id"),
-    searchParams.get("date_from"),
-    searchParams.get("date_to"),
     searchParams.get("min_amount"),
     searchParams.get("max_amount"),
     searchParams.get("is_uncategorized"),
   ]);
 
-  // Calculate stats from all matching transactions (fetch with high limit)
+  // Calculate stats from all matching transactions (server-side aggregate)
   useEffect(() => {
     const calculateStats = async () => {
       if (!token) return;
 
       try {
-        // Fetch all matching transactions (with high limit) to calculate stats
-        const statsFilters: TransactionFilters = {
-          ...filters,
-          page: 1,
-          limit: 10000, // High limit to get all transactions for stats
-        };
-        const data = await fetchTransactions(token, statsFilters);
-        
-        let totalIncome = 0;
-        let totalExpenses = 0;
-
-        data.transactions.forEach((tx) => {
-          const amount = parseFloat(tx.amount);
-          if (amount > 0) {
-            totalIncome += amount;
-          } else {
-            totalExpenses += Math.abs(amount);
-          }
-        });
+        const data = await fetchTransactionStats(token, filters);
 
         setStats({
           total: data.total,
-          income: totalIncome,
-          expenses: totalExpenses,
+          income: data.income,
+          expenses: data.expenses,
         });
       } catch (error) {
         console.error("Failed to calculate stats:", error);
@@ -284,7 +319,9 @@ export default function TransactionsPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold text-gray-900">Transactions</h1>
-            <p className="text-sm text-gray-500">View and manage your transactions</p>
+            <p className="text-sm text-gray-500">
+              View and manage your transactions
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <BatchProcessingButton
@@ -303,11 +340,41 @@ export default function TransactionsPage() {
           </div>
         </div>
 
+        {/* Month Navigation */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleMonthChange("prev")}
+              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="w-4 h-4 text-gray-700" />
+            </button>
+            <div className="text-sm font-medium text-gray-900">
+              {monthLabel}
+            </div>
+            <button
+              type="button"
+              onClick={() => handleMonthChange("next")}
+              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+              aria-label="Next month"
+            >
+              <ChevronRight className="w-4 h-4 text-gray-700" />
+            </button>
+          </div>
+          <div className="text-xs text-gray-500">
+            Showing transactions for this month
+          </div>
+        </div>
+
         {/* Summary Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="text-xs text-gray-500 mb-1">Total Transactions</div>
-            <div className="text-2xl font-bold font-numbers text-gray-900">{stats.total}</div>
+            <div className="text-2xl font-bold font-numbers text-gray-900">
+              {stats.total}
+            </div>
           </div>
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="text-xs text-gray-500 mb-1">Total Income</div>

@@ -44,6 +44,12 @@ export interface TransactionListResponse {
   pages: number;
 }
 
+export interface TransactionStatsResponse {
+  total: number;
+  income: string; // Decimal as string
+  expenses: string; // Decimal as string
+}
+
 export interface TransactionFilters {
   page?: number;
   limit?: number;
