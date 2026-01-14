@@ -5,9 +5,11 @@ budgets, holdings, insights, plans, Plaid items) to database tables.
 """
 
 from datetime import datetime
+import uuid
 from decimal import Decimal
 
 from sqlalchemy import DateTime, Date, ForeignKey, String, Text, JSON, Numeric, UniqueConstraint, Index
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -27,6 +29,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(unique=True, index=True)
     name: Mapped[str]
     password_hash: Mapped[str]
+    # Supabase auth UUID (matches Postgres `uuid` type)
+    auth_user_id: Mapped[uuid.UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
     accounts: Mapped[list["Account"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     budgets: Mapped[list["Budget"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -53,7 +57,7 @@ class Account(Base):
     name: Mapped[str]
     account_type: Mapped[str] 
     provider: Mapped[str]
-    account_num: Mapped[str]
+    account_num: Mapped[str | None] = mapped_column(nullable=True)  # Nullable for manual accounts
     balance: Mapped[Decimal] = mapped_column(Numeric(15, 2))  # Up to $9,999,999,999,999.99
     is_active: Mapped[bool]
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

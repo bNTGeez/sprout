@@ -74,12 +74,17 @@ def get_dashboard(
     assets = account_balances + holdings_value
     
     # Calculate liabilities (credit card debt)
-    # Use -func.sum() instead of func.abs() for consistency
-    queryLiabilities = select(func.coalesce(-func.sum(Account.balance), Decimal("0.00"))).where(
+    # Plaid returns credit card balances as positive (amount owed), so we sum them as-is
+    # If balance is negative, it means credit (overpayment), so we use abs() to get the debt amount
+    queryLiabilities = select(
+        func.coalesce(
+            func.sum(func.abs(Account.balance)), 
+            Decimal("0.00")
+        )
+    ).where(
         Account.user_id == current_user.id,
         Account.is_active == True,
         Account.account_type == "credit_card",
-        Account.balance < 0,  # Only negative balances are debt
     )
     liabilities = db.execute(queryLiabilities).scalar_one()
     

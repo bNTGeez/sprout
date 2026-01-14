@@ -3,7 +3,7 @@
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, case
 from datetime import date
 from decimal import Decimal
 
@@ -16,6 +16,7 @@ from ..schemas import (
     TransactionCreateRequest,
     TransactionUpdateRequest,
     UncategorizedCountResponse,
+    TransactionStatsResponse,
 )
 
 router = APIRouter()
@@ -177,6 +178,72 @@ def get_uncategorized_count(
     ).scalar_one()
     
     return UncategorizedCountResponse(count=count)
+
+
+@router.get("/transactions/stats", response_model=TransactionStatsResponse)
+def get_transaction_stats(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    search: Optional[str] = None,
+    category_id: Optional[int] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    min_amount: Optional[Decimal] = None,
+    max_amount: Optional[Decimal] = None,
+    is_uncategorized: Optional[bool] = None,
+) -> TransactionStatsResponse:
+    """Get aggregate stats (count/income/expenses) for current filters.
+
+    This avoids fetching all rows client-side just to compute totals.
+    """
+    base_filters = [Transaction.user_id == current_user.id]
+
+    if search:
+        search_pattern = f"%{search}%"
+        base_filters.append(
+            or_(
+                Transaction.description.ilike(search_pattern),
+                func.coalesce(Transaction.normalized_merchant, "").ilike(search_pattern),
+            )
+        )
+
+    if category_id is not None:
+        base_filters.append(Transaction.category_id == category_id)
+
+    if date_from:
+        base_filters.append(Transaction.date >= date_from)
+
+    if date_to:
+        base_filters.append(Transaction.date <= date_to)
+
+    if min_amount is not None:
+        base_filters.append(Transaction.amount >= min_amount)
+
+    if max_amount is not None:
+        base_filters.append(Transaction.amount <= max_amount)
+
+    if is_uncategorized is not None:
+        if is_uncategorized:
+            base_filters.append(Transaction.category_id.is_(None))
+        else:
+            base_filters.append(Transaction.category_id.isnot(None))
+
+    total = db.execute(select(func.count(Transaction.id)).where(*base_filters)).scalar_one()
+
+    income_expr = func.coalesce(
+        func.sum(case((Transaction.amount > 0, Transaction.amount), else_=Decimal("0.00"))),
+        Decimal("0.00"),
+    )
+    expenses_expr = func.coalesce(
+        func.sum(case((Transaction.amount < 0, -Transaction.amount), else_=Decimal("0.00"))),
+        Decimal("0.00"),
+    )
+
+    income, expenses = db.execute(
+        select(income_expr, expenses_expr).where(*base_filters)
+    ).one()
+
+    return TransactionStatsResponse(total=total, income=income, expenses=expenses)
 
 
 @router.get("/transactions/{transaction_id}", response_model=TransactionDetailResponse)

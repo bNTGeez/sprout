@@ -309,3 +309,14 @@ class UncategorizedCountResponse(BaseModel):
     """Count of uncategorized transactions."""
     count: int
 
+
+class TransactionStatsResponse(BaseModel):
+    """Aggregated stats for a filtered transaction set."""
+    total: int
+    income: Decimal
+    expenses: Decimal
+
+    @field_serializer("income", "expenses")
+    def serialize_decimal(self, value: Decimal) -> str:
+        return str(value)
+

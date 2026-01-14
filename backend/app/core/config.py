@@ -32,12 +32,26 @@ def get_settings() -> Settings:
 
     load_dotenv()
     debug_value = os.getenv("DEBUG", "false").lower() in {"1", "true", "yes"}
+    
+    # Get Plaid environment
+    plaid_env = os.getenv("PLAID_ENV", "sandbox").lower()
+    
+    # Support environment-specific secrets (PLAID_PROD_SECRET, PLAID_DEV_SECRET, etc.)
+    # but fall back to generic PLAID_SECRET for backward compatibility
+    plaid_secret = ""
+    if plaid_env == "production" and os.getenv("PLAID_PROD_SECRET"):
+        plaid_secret = os.getenv("PLAID_PROD_SECRET", "")
+    elif plaid_env == "development" and os.getenv("PLAID_DEV_SECRET"):
+        plaid_secret = os.getenv("PLAID_DEV_SECRET", "")
+    else:
+        plaid_secret = os.getenv("PLAID_SECRET", "")
+    
     return Settings(
         database_url=os.getenv("DATABASE_URL", ""),
         debug=debug_value,
         plaid_client_id=os.getenv("PLAID_CLIENT_ID", ""),
-        plaid_secret=os.getenv("PLAID_SECRET", ""),
-        plaid_env=os.getenv("PLAID_ENV", "sandbox"),
+        plaid_secret=plaid_secret,
+        plaid_env=plaid_env,
         supabase_url=os.getenv("SUPABASE_URL", ""),
         supabase_jwt_secret=os.getenv("SUPABASE_JWT_SECRET", ""),
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),

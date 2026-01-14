@@ -4,8 +4,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 from jwt import PyJWTError, InvalidTokenError
+import uuid
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, or_
 
 from ..core.config import get_settings
 from ..db.session import get_db
@@ -90,9 +91,25 @@ def get_current_user(
             detail="Token missing user ID"
         )
     
-    # Find user by email since Supabase manages auth
-    query = select(User).where(User.email == user_email)
+    # Parse Supabase `sub` (UUID string) to a UUID object for Postgres uuid comparisons.
+    supabase_user_uuid: uuid.UUID | None = None
+    try:
+        supabase_user_uuid = uuid.UUID(str(supabase_user_id))
+    except Exception:
+        supabase_user_uuid = None
+
+    # Prefer matching by Supabase user id; fall back to email for legacy rows.
+    conditions = [User.email == user_email]
+    if supabase_user_uuid is not None:
+        conditions.insert(0, User.auth_user_id == supabase_user_uuid)
+    query = select(User).where(or_(*conditions))
     user = db.execute(query).scalar_one_or_none()
+
+    # Backfill auth_user_id for users created before we stored it.
+    if user and not user.auth_user_id and supabase_user_uuid is not None:
+        user.auth_user_id = supabase_user_uuid
+        db.commit()
+        db.refresh(user)
     
     # Auto-create user if doesn't exist 
     if not user:
@@ -102,7 +119,8 @@ def get_current_user(
         user = User(
             email=user_email,
             name=user_email.split("@")[0],  # Use email prefix as default name
-            password_hash="supabase_managed"  # Placeholder since supabase handles auth
+            password_hash="supabase_managed",  # Placeholder since supabase handles auth
+            auth_user_id=supabase_user_uuid  # Store Supabase auth UUID
         )
         db.add(user)
         db.flush()  # Flush to get user.id
@@ -114,6 +132,7 @@ def get_current_user(
                 name="Cash",
                 account_type="cash",
                 provider="manual",
+                account_num=None,  # Manual accounts don't have account numbers
                 balance=Decimal("0"),
                 is_active=True,
             ),
@@ -122,6 +141,7 @@ def get_current_user(
                 name="Checking",
                 account_type="depository",
                 provider="manual",
+                account_num=None,  # Manual accounts don't have account numbers
                 balance=Decimal("0"),
                 is_active=True,
             ),
