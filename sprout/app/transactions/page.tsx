@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { TransactionTable } from "../components/transactions/TransactionTable";
@@ -41,7 +41,7 @@ function getMonthRange(
   return { date_from: toISODate(start), date_to: toISODate(end) };
 }
 
-export default function TransactionsPage() {
+function TransactionsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [token, setToken] = useState<string>("");
@@ -434,5 +434,26 @@ export default function TransactionsPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function TransactionsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-6 bg-gray-50 min-h-screen">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-4 w-64 bg-gray-100 rounded mt-2 animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <TransactionsPageContent />
+    </Suspense>
   );
 }
